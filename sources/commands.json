@@ -280,7 +280,7 @@
     "category" : "checkpoint"
   },
   {
-    "command" : "clish -c \'show installer status build\'",
+    "command" : "clish -c show installer status build",
     "comment" : "Show CPUSE build number",
     "category" : "checkpoint"
   },
@@ -305,7 +305,7 @@
     "category" : "checkpoint"
   },
   {
-    "command" : "clish -c \'show configuration\' | more",
+    "command" : "clish -c show configuration | more",
     "comment" : "Show running Clish configuration",
     "category" : "checkpoint"
   },
@@ -365,12 +365,7 @@
     "category" : "checkpoint"
   },
   {
-    "command" : "clish -c \'installer agent update\'",
-    "comment" : "Update CPUSE Deployment Agent",
-    "category" : "checkpoint"
-  },
-  {
-    "command" : "clish -c \'installer agent update\'",
+    "command" : "clish -c installer agent update",
     "comment" : "Update CPUSE Deployment Agent",
     "category" : "checkpoint"
   }
