@@ -270,7 +270,7 @@
     "category" : "firewall"
   },
   {
-    "command" : "fw ctl zdebug + drop | grep 'x.x.x.x\|y.y.y.y' ",
+    "command" : "fw ctl zdebug + drop | grep 'x.x.x.x'",
     "comment" : "Check reason of your packet being dropped",
     "category" : "firewall"
   },
