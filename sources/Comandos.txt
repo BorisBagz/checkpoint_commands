@@ -1,0 +1,179 @@
+----------------------------------------------
+Verificar Modelo de UTM
+----------------------------------------------
+
+1. Run the command:
+      /usr/sbin/dmidecode
+
+2. Find the line:
+      Handle 0x0001
+
+3. Under 'Handle 0x0001', you will find the 'Product Name' field. Use the below table to match the name shown in this field to the appliance model.
+      Appliance Model       Product Name
+      Power-1 9070 Appliance        P-20-00
+      Power-1 5070 Appliance        P-10-00
+      UTM-1 3070 Appliance          U-40-00
+      UTM-1 2070 Appliance          U-30-00
+      UTM-1 1070 Appliance          U-20-00
+      UTM-1 570 Appliance           U-15-00
+      UTM-1 270 Appliance           U-10-00
+      UTM-1 2050 Appliance          C6P_UTM
+      UTM-1 1050 Appliance          C6_UTM
+      UTM-1 450 Appliance           C2_UTM
+
+----------------------------------------------
+Comandos Cluster
+----------------------------------------------
+
+cphaprob stat 		- verificar status de cluster
+cphaprob -a if		- verificar interfaces del cluster
+clusterXL_admin down	- bajar cluster
+clusterXL_admin up	- subir cluster
+
+
+----------------------------------------------
+Comandos debug VPN
+----------------------------------------------
+
+vpn debug trunc - ikeon?? - inicia el debug (para detenerlo vpn debug off && vpn debug ikeoff)
+
+vpn debug off
+
+el debug esta en $FWDIR/log/ike.elg (se abre con ikeview)
+
+vpn tu - reinicia el tunel
+
+----------------------------------------------
+Degug de paquetes
+----------------------------------------------
+
+fw ctl zdebug drop - filtra drops
+
+----------------------------------------------
+Utiles
+----------------------------------------------
+
+tail - n (numero de lineas) messages
+
+watch -n (tiempo) 'comando'
+
+TCPDUMP
+
+if we want to match packets with only the SYN flag set, the 14th byte would have a binary 
+  value of 00000010 which equals 2 in decimal.
+# tcpdump -i eth1 'tcp[13] = 2'
+
+- Matching SYN, ACK (00010010 or 18 in decimal)
+# tcpdump -i eth1 'tcp[13] = 18'
+
+- Matching either SYN only or SYN-ACK datagrams
+# tcpdump -i eth1 'tcp[13] & 2 = 2'
+
+----------------------------------------------
+Liberar Espacio
+----------------------------------------------
+
+Temporales se pueden borrar en 
+$FWDIR/tmp
+$CPDIR/tmp 
+
+rm rf *
+rm -r *
+
+----------------------------------------------
+Identity Awareness
+----------------------------------------------
+
+adlog a dc - para ver el DC en el checkpoint
+adlog a query all - para  ver las sesiones
+
+----------------------------------------------
+Verificar peso de carpeta
+----------------------------------------------
+
+du -h - calcula el peso de todas las carpetas
+du -h --max-depth=# calcula el total de las carpetas
+
+---------------------------------------------
+Magic MAC
+---------------------------------------------
+
+fw ctl get int fwha_mac_magic - obtener el magic mac
+fw ctl get int fwha_mac_forward_magic - obtener el forward magic mac
+
+fw ctl set int fwha_mac_magic 0000 - cambiar el mac magic
+fw ctl set int fwha_mac_forward_magic 0000 - cambiar el forward mac magic
+
+$FWDIR/boot/modules - direción donde se encuentra fwkern.conf
+
+si no esta, crearlo cat > fwkern.conf
+
+Introducir y luego reboot
+
+fwha_mac_magic=0000 (numero hexadesimal)
+fwha_mac_forward_magic=0000 (numero hexadecimal)
+
+R77.30 - cphaconf cluster_id set
+
+------------------------------------------------
+Unregister routed
+------------------------------------------------
+cphaprob -d routed unregister
+
+tellpm process:routed
+
+------------------------------------------------
+Apagar Sync
+------------------------------------------------
+
+fw -d ctl setsync off - Apagar Sync
+fw -d ctl setsync start - Encender Sync
+fw ctl pstat - Sync Status
+fw -d fullsync <IP address of Sync interface of working member> - Forzar Sync
+
+------------------------------------------------
+Comandos para Verificar rendimiento del FW
+------------------------------------------------
+
+Top +1 - Para ver la cantidad de cores
+fw ctl multik stat - para ver coreXL
+fw ctl affinity -l -a -v - ensena que core maneja las interfaces
+Fwaccel stats -s - para ver cuantos paquetes se estan acelerando
+fw tab -t connections -s - para ver la tabla de conexiones
+fw ctl pstat
+freem -mt - para ver la cantidad de memoria libre
+
+-----------------------------------------------
+Borrar tabla de conexiones
+-----------------------------------------------
+
+fw tab -t connections -x
+
+-----------------------------------------------
+Borrar tabla de NAT
+-----------------------------------------------
+
+fw tab -t fwx_alloc -x
+
+-----------------------------------------------
+Verificar usuarios VPN por linea de comando
+-----------------------------------------------
+
+fw tab -t om_assigned_ips -s  - Verificar el Peak de usuarios VPN
+fw tab -t om_assigned_ips -f  - Despliega los IP asignados
+fw tab -t om_assigned_ips -x  - Borra los registros
+
+-----------------------------------------------
+Apagar SmartLog
+-----------------------------------------------
+
+Apagar - smartlogstop
+Encender - smartlogstart
+
+-----------------------------------------------
+Contar Lineas Clish
+-----------------------------------------------
+
+clish -c "comando" | wc -l
+
+

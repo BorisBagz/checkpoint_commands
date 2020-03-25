@@ -1,0 +1,19 @@
+Procedure:
+
+Transfer the CPUSE Agent package (DeploymentAgent_<build>.tgz) to the machine (into some directory - e.g., /some_path_to_CPUSE/).
+
+Unpack the CPUSE Agent package:
+
+[Expert@HostName:0]# cd /some_path_to_CPUSE/
+[Expert@HostName:0]# tar -zxvf DeploymentAgent_<build>.tgz
+
+Install the CPUSE Agent RPM:
+
+rpm -Uhv --force CPda-00-00.i386.rpm
+
+killall -v clish clishd
+
+tellpm process:confd
+
+tellpm process:confd t
+$DADIR/bin/dastart

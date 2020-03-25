@@ -1,0 +1,551 @@
+#!/bin/bash
+#
+# ccc v4.6 - Common Check Point Commands for R77.30 / R80.x
+#
+# Script Author  : Danny Jung
+# Script Website : https://dannyjung.de
+# Script Source  : https://dannyjung.de/ccc
+# License        : GNU General Public License (GPL)
+
+  [ "$1" != '' ] && { echo "Usage: `basename $0` - Use arrow or t,f,g,h keys to navigate, Enter to submit, Left-Arrow or Backspace to go back, +/- to switch VS, Escape or 'q' to exit the script."; exit 0; } || Version='4.6'
+
+# Environment
+
+  OS=`cat /etc/cp-release | cut -c 13- | sed 's/^ *//g' | sed 's/\s*$//g'`; case `echo ${OS#*R*}` in 77.30|80.10|80.20|80.30|80.40) ;; *) echo "Unsupported OS"; exit 1; esac
+  if [[ -e /etc/profile.d/CP.sh ]]; then source /etc/profile.d/CP.sh; else echo "Unsupported Environment"; exit 1; fi
+  if [[ -e /etc/profile.d/vsenv.sh ]]; then source /etc/profile.d/vsenv.sh; fi
+  echo -n Starting
+  bind '"\e[0n": self-insert' 2>/dev/null;
+
+# Variables
+
+  i=0; j=1; k=1; l=1; m=1; n=1; o=1; p=1; r=1; s=1; t=1; u=1; v=1
+  MGMT=`if [ -f $FWDIR/conf/masters ]; then cat $FWDIR/conf/masters | awk 'NR>1 && NR<3 { print $1 }'; else echo localhost; fi`; echo -n .
+  MGIP=`if [ -f $CPDIR/registry/HKLM_registry.data ]; then cat $CPDIR/registry/HKLM_registry.data | grep ICAip | awk '{print $2}'; fi`; echo -n .
+  RUN=''; ADD=''; FIN=''; LICS=''; ABEXP=''; AVEXP=''; ISGW=0; ISUPD=0; NOW=`date +%s`
+
+# Text formatting
+
+  BOLD=`tput bold`; NORM=`tput sgr0`; QUIT=`tput setaf 1`; ENAB=`tput setaf 2`; WARN=`tput setaf 5`; CYAN=`tput setaf 6`; RED=`tput setab 1`; KEY=`tput setab 2`; BLACK=`tput setaf 0`; TXT=`tput setaf 7`; S=`tput rev`
+
+# System info
+
+  HOST=`hostname`; HOSTIP=`grep $HOST /etc/hosts | sed 's/\s.*$//'`
+  THIS=$(dirname `readlink -f $0`)`echo -n "/"; basename $0`
+  TYPE=`cpstat os | grep "Appliance Name" | tr -s ' ' | cut -c 17-`; if [[ -z $TYPE ]]; then TYPE="Open Server"; fi; echo -n .
+  case `echo ${TYPE:0:5}` in Check) SERIAL=`clish -c "show asset system" | grep "Serial Number:" | head -1 | sed 's/Serial Number: //g'`; echo -n .; MAC=`cplic print | tr ' ' '\n' | grep CK- | tail -1 | tr '-' ':' | sed 's/CK://'`; echo -n .; PSU=`clish -c 'show sysenv all' | grep Power | awk '{print $3": "$4}' | sed 's/#//' | tr '\n' ' ' | sed 's/Up /Up  /'`;; *) ;; esac
+  if [[ `clish -c "show snmp agent"` != *'isabled'* ]]; then if [[ `clish -c "show snmp agent-version"` != *'v3'* ]]; then SNMP="${RED}${TXT}Insecure${NORM}"; else SNMP="v3 Only"; fi; fi
+  RAID=`raidconfig status | grep -A1 State | tail -1 | sed 's@.* @@'`; if [[ -z $RAID ]]; then RAID="-"; fi; echo -n .
+  if     [[ `echo $MDSDIR | grep mds` ]]; then SYSTEM="Multi-Domain Server (MDS)"
+    elif [[ `$CPDIR/bin/cpprod_util FwIsVSX 2>/dev/null` == *'1'* ]]; then SYSTEM="Virtual System Extension (VSX)"
+    elif [[ `$CPDIR/bin/cpprod_util FwIsStandAlone 2>/dev/null` == *'1'* ]]; then SYSTEM="Standalone Firewall & Management"
+    elif [[ `cpstat -f all ha 2>/dev/null | grep "HA started:" | tr -s ' '` == 'HA started: yes'  ]]; then MODE=`cpstat -f all ha | grep "Working mode:" | tr -s ' ' | cut -c 15,20`; STAT=`cpstat -f all ha | grep "HA state:" | tr -s ' ' | cut -c 11-`; STAT="$(tr '[:lower:]' '[:upper:]' <<< ${STAT:0:1})${STAT:1}"; SYSTEM="Firewall Cluster Node (${MODE}) > ${STAT}"; SYNC=`cphaprob -a if | grep sync | sed '/non/d' | wc -l`; if [[ $SYNC -ne "1" ]]; then SYNC="${RED}${TXT}${SYNC} sync interfaces found (sk92804) "; fi
+    elif [[ `$CPDIR/bin/cpprod_util FwIsFirewallModule 2>/dev/null` == *'1'* ]]; then SYSTEM="Firewall Gateway"
+	elif [[ `cpwd_admin list | grep EPM | cut -c 1-3` == 'EPM' ]]; then SYSTEM="Endpoint Management"
+    elif [[ `$CPDIR/bin/cpprod_util FwIsFirewallMgmt 2>/dev/null` == *'1'* ]] && [[ `cpwd_admin list | grep -o CPSEMD` == "CPSEMD" ]];  then SYSTEM="Firewall Management (with Smart Event)"
+    elif [[ `$CPDIR/bin/cpprod_util FwIsFirewallMgmt 2>/dev/null` == *'1'* ]]; then SYSTEM="Firewall Management";  if [[ -e $MDS_FWDIR/conf/dbsyncStatus.C ]]; then if [[ `grep ': (' $MDS_FWDIR/conf/dbsyncStatus.C | sed '/\t\t/d' | wc -l` != "1" ]]; then SYSTEM="Firewall Management HA"; if [[ `grep Primary $CPDIR/registry/HKLM_registry.data | sed 's/[^0-9]*//g'` == *'1'* ]]; then SYSTEM+=" (Primary, "; else SYSTEM+=" (Secondary, "; fi; if [[ `cpstat mg | grep status | awk 'NF>1{print $NF}'` == *'by'* ]]; then SYSTEM+="Standby)"; else SYSTEM+="Active)"; fi; fi; fi
+    elif [[ `cpwd_admin list | grep CPSEMD | cut -c 1-6` == 'CPSEMD' ]]; then SYSTEM="SmartEvent Server"
+    else SYSTEM="N/A"
+  fi
+  echo -n .
+  OSMODE=`uname -a | grep -c x86_64`; [ $OSMODE == 0 ] && { OSMODE=32; } || { OSMODE=64; }
+  KERNEL=`uname -r | sed 's/\([0-9]\+\.[0-9]\+\)\..*/\1/'`
+  DRIVER=`ls -1 /sys/class/net | grep -v ^lo | xargs -I % sh -c 'ethtool % 2>/dev/null; ethtool -i % 2>/dev/null' | grep '^driver\|Speed\|Duplex\|Settings' | grep driver | sort -u | cut -c 9- | tr '\n' ',' | sed 's/usbnet,//g' | sed s'/.$//' | sed 's/,/, /g' | sed s/be2net/\`echo "${RED}${TXT}be2net${NORM}${BOLD}"\`/ | sed s/bge/\`echo "${RED}${TXT}bge${NORM}${BOLD}"\`/ | sed s/usbnet/\`echo "${RED}${TXT}usbnet${NORM}${BOLD}"\`/ | sed s/cdc_ether/\`echo "${RED}${TXT}cdc_ether${NORM}${BOLD}"\`/ | sed s/bnx2/\`echo "${RED}${TXT}bnx2${NORM}${BOLD}"\`/ | sed s/tg3/\`echo "${RED}${TXT}tg3${NORM}${BOLD}"\`/ `; echo -n .
+  CPUSE=`cat /config/db/initial | grep da_build | awk '{print $NF}'`
+  NTIME=`if [[ -e /usr/bin/ntpstat ]]; then ntpstat 2>/dev/null | tr -d '\n' | sed 's/.*unsynchronised.*/_/' | sed 's/.*synchronised.*/Synced/'; else echo "${RED}${TXT}ntpstat missing"; fi`; if [[ "$NTIME" == "_" ]]; then NTIME="${RED}${TXT}No sync"; elif [[ "$NTIME" == "" ]]; then NTIME="${RED}${TXT}ntpd error"; fi
+  JUMBO=`cpinfo -y all 2>/dev/null | grep JUMBO | tail -n1 | awk '{print $3}'`; [ "$JUMBO" == '' ] && JUMBO="-"
+  CORE=`grep -c ^processor /proc/cpuinfo`; echo -n .
+  MEMO=`free -g`; RAM=`dmidecode -t memory | grep  Size: | grep -v "No Module Installed" | awk '{sum+=$2/1024}END{print sum}'`; if [[ $RAM < `echo "$MEMO" | gawk '/Mem:/{print $2}'` ]]; then RAM=`echo "$MEMO" | gawk '/Mem:/{print $2}'`; ((RAM++)); fi
+  FREE=`echo "$MEMO" | gawk '/Mem:/{print $4}'`
+  SWAP=`echo "$MEMO" | gawk '/Swap:/{print $3}'`; if [[ $SWAP -eq "0" ]]; then SWAP=`free -m | gawk '/Swap:/{print $3}'`; if [[ $SWAP -eq "0" ]]; then SWAP=`free -k | gawk '/Swap:/{print $3}'`; if [[ $SWAP -eq "0" ]]; then SWAP="Swapping ${BOLD}${SWAP} GB${NORM}"; else SWAP="${RED}${TXT}${BOLD} Swapping ${SWAP} KB ${NORM}"; fi else SWAP="${RED}${TXT}${BOLD} Swapping ${SWAP} MB ${NORM}"; fi else SWAP="${RED}${TXT}${BOLD} Swapping ${SWAP} GB ${NORM}"; fi
+  LOAD=`uptime | sed 's/.*://' | tr -d , | awk '{print $1}'`; echo -n .
+  DUMPS=`if [ -z "$(ls -A /var/log/dump/usermode/)" ]; then echo -; else echo "${RED}${TXT}${BOLD}Present${NORM}"; fi`
+  CRASH=`if [ -z "$(ls -A /var/log/crash/)" ] && [ -z "$(ls -A /var/crash/)" ]; then echo -; else echo "${RED}${TXT}${BOLD}Present${NORM}"; fi`
+  if [[ $(ping -c1 8.8.8.8 2> /dev/null | grep -ow "1 received") ]]; then UPDT=`curl_cli -fsk https://dannyjung.de/ccc | zcat 2>/dev/null`; [ $? -eq 0 ] && Update=${UPDT:21:3} || Update="$Version"; else Update="$Version"; fi
+  if [[ "$Update" != "$Version" ]]; then CHKSUM=`curl_cli -fsk https://dannyjung.de/ccc-sha512 | zcat 2>/dev/null`; if [[ $? -eq 0 ]]; then if [[ `echo "$UPDT" | sha512sum | cut -d " " -f 1` != $CHKSUM ]]; then Update="$Version"; fi; else Update="$Version"; fi; fi
+  [ "$Update" == "$Version" ] && unset UPDT;
+  ISGW=`$CPDIR/bin/cpprod_util FwIsFirewallModule 2>/dev/null`; echo -n .
+  [ $ISGW == 0 ] && { ISGW=`$CPDIR/bin/cpprod_util FwIsVSX 2>/dev/null`; }
+  [ $ISGW == 1 ] && { if [[ -n "$vsname" ]] && [[ $vsname != *'unavail'* ]]; then vsenv $INSTANCE_VSID >/dev/null 2>&1; fi; }
+
+# Functions
+
+  function load {
+    [ $ISGW == 1 ] && { if [[ -n "$vsname" ]] && [[ $vsname == *'unavail'* ]] || [[ $INSTANCE_VSID == '0' ]]; then LIC=`fw ctl affinity -l -r | grep "CPU " | awk '{print $3}' | sed '/^\s*$/d' | wc -l`; echo -n .; case `echo ${TYPE:0:5}` in Check) ;; *) LICS=`fw ctl get int fwlic_num_of_allowed_cores | sed 's/[^0-9]*//g'`; if [[ $LICS -lt $CORE ]]; then LICS="${RED}${TXT}${BOLD} $LICS licensed ${NORM}"; else LICS=''; fi ;; esac; fi; if [[ -n "$vsname" ]] && [[ $vsname != *'unavail'* ]]; then HOST=`echo $vsname' (ID: '$INSTANCE_VSID')'`; if [[ $INSTANCE_VSID == '0' ]]; then VSTYPE=$TYPE; else VSTYPE=`cphaprob -vs $INSTANCE_VSID stat | tr -d '.\t\n' | rev | awk '{NF=2}1' | rev`; if [[ $VSTYPE != *"Switch"* ]] && [[ $VSTYPE != *"Router"* ]]; then VSTYPE='Virtual System'; fi; fi; fi; if [[ `fw ctl get int fw_allow_out_of_state_tcp` -eq 0 ]]; then STATE="Stateful"; else STATE="${RED}${TXT}No Stateful Inspection"; fi; if [[ `fw ctl multik stat 2>/dev/null | wc -l` == "0" ]]; then CXL="${RED}${TXT}${BOLD}Off${NORM}"; else CXL="On"; fi; echo -n .; case `echo ${OS#*R*}` in 77.30|80.10) SXL=`fwaccel stat | grep "Accelerator Status :" | cut -c 22- | sed 's/on/On/g' | sed 's/off/Off/g'`;; *) SXL=`fwaccel stat | sed -n 4p | tr '|' ' ' | awk '{print $3}' | sed 's/enabled/On/g' | sed 's/disabled/Off/g'`; esac; if [[ $SXL == "Off" ]]; then SXL="${RED}${TXT}${BOLD}Off${NORM}"; fi; echo -n .; if [[ -e /proc/smt_status ]]; then SMT=`cat /proc/smt_status | sed 's/Soft Disable/Off/g' | sed 's/Enable/On/g' | sed 's/Unsupported/-/g'`; else SMT='-'; fi; echo -n .; CPMQ=`cpmq get -a 2>/dev/null`; MQON=`echo "$CPMQ" | grep -c "\[On\]"`; MQIF=`echo "$CPMQ" | grep -c "\["`; echo -n .; case $MQIF in 0) CPMQ="-";; *) CPMQ="$MQON/$MQIF";; esac; case `echo ${OS#*R*}` in 77.30) DYN=`fw ctl multik get_mode | cut -c 17-`;; *) DYN=`fw ctl multik dynamic_dispatching get_mode | cut -c 17-`;; esac; }
+    case `echo ${OS#*R*}` in 77.30) IPSUPD=`if [ -f $FWDIR/state/local/FW1/local.set ]; then grep -A2 "sd_last_update_time" $FWDIR/state/local/FW1/local.set | date -d @$(tr -dc '[0-9]') +"%b %d %Y @%H:%M" | tr '@' '\`'; fi`; IPSUPD2=`echo $IPSUPD | tr '\`' '@'`; if [ -f $FWDIR/state/local/AMW/local.IPS.set ]; then if ((($NOW-`grep -A2 "sd_last_update_time" $FWDIR/state/local/AMW/local.IPS.set | tr -dc '[0-9]'`) > 604800 )); then IPSUPD="${RED}${TXT}${IPSUPD}"; fi; fi ;; *) IPSUPD=`if [ -f $FWDIR/state/local/AMW/local.IPS.set ]; then grep -A2 "sd_last_update_time" $FWDIR/state/local/AMW/local.IPS.set | date -d @$(tr -dc '[0-9]') +"%b %d %Y @%H:%M" | tr '@' '\`'; fi`; IPSUPD2=`echo $IPSUPD | tr '\`' '@'`; if [ -f $FWDIR/state/local/AMW/local.IPS.set ]; then if ((($NOW-`grep -A2 "sd_last_update_time" $FWDIR/state/local/AMW/local.IPS.set | tr -dc '[0-9]'`) > 604800 )); then IPSUPD="${RED}${TXT}${IPSUPD}"; fi; fi esac
+    INST=`cpstat fw | grep "Policy name" | cut -c 15-`; echo -n .
+    TIME=`cpstat fw | grep "Install time" | awk '{print $4" "$5" "$7" \`"$6}' | cut -d':' -f1,2`; echo -n .
+    BLADES=`enabled_blades | sed 's/fw/01FW/g' | sed 's/cvpn/07MOB/g' | sed 's/vpn/02VPN/g' | sed 's/ips/03IPS/g' | sed 's/appi/04AppC/g' | sed 's/urlf/05URLF/g' | sed 's/SSL_INSPECT/06HTTPS-Inspect/g' | sed 's/av/08AV/g' | sed 's/anti_bot/09ABot/g' | sed 's/aspm/10AntiSpam/g' | sed 's/identityServer/11IA/g' | sed 's/mon/12MON/g' | sed 's/dlp/13DLP/g' | sed 's/qos/14QoS/g' | sed 's/content_awareness/15Content/g' | sed 's/ThreatEmulation/16TE/g' | sed 's/Scrub/17TX/g' | tr ' ' '\n' | sort -u | tr -d '0123456789' | tr '\n' , | sed s'/,$/\n/' | sed 's/,/, /g'`; if [[ -n `pidof in.geod` ]]; then BLADES+=", GeoP"; fi; echo -n .
+    if [[ $ISGW -eq "1" ]]; then
+      if [[ $BLADES == *"IPS"*  ]]; then IPS=`ips stat`; IPSMODE=`echo "$IPS" | grep Detect | awk '{print $NF}'`; if [[ $IPSMODE == "Off" ]]; then IPSMODE="Prevent Mode"; else IPSMODE="${RED}${TXT}${BOLD}Detect Mode${NORM}"; fi; IPSBYPASS=`echo "$IPS" | grep Bypass | awk '{print $NF}'`; if [[ $IPSBYPASS == "Off" ]]; then IPSBYPASS="No Bypass"; else IPSBYPASS="Load Bypass"; fi; ISUPD=1; fi
+      if [[ $BLADES == *"AppC"* ]]; then if [[ -e $FWDIR/appi/update/Version ]]; then APPUPD=`date -r $FWDIR/appi/update/Version +"%b %d %Y @%H:%M" 2>/dev/null | tr '@' '\`'`; if ((($NOW-`date -r $FWDIR/appi/update/Version +%s 2>/dev/null`) > 604800 )); then APPUPD="${RED}${TXT}${APPUPD}"; fi; else APPUPD="${RED}${TXT}Initial state"; fi; ISUPD=1; fi
+	  if [[ $BLADES == *"URLF"* ]]; then if [[ -e $FWDIR/appi/update/urlf_db.bin ]]; then URLUPD=`date -r $FWDIR/appi/update/urlf_db.bin +"%b %d %Y @%H:%M" 2>/dev/null | tr '@' '\`'`; if ((($NOW-`date -r $FWDIR/appi/update/urlf_db.bin +%s 2>/dev/null`) > 604800 )); then URLUPD="${RED}${TXT}${URLUPD}"; fi; else URLUPD="${RED}${TXT}Initial state"; fi; ISUPD=1; fi
+      if [[ $BLADES == *"AV"*   ]]; then if [[ -e $FWDIR/amw_kss/update/Version ]]; then AVUPD=`date -r $FWDIR/amw_kss/update/Version +"%b %d %Y @%H:%M" 2>/dev/null | tr '@' '\`'`; if ((($NOW-`date -r $FWDIR/amw_kss/update/Version +%s 2>/dev/null`) > 604800 )); then AVUPD="${RED}${TXT}${AVUPD}"; fi; else AVUPD="${RED}${TXT}Initial state"; fi; if [[ `cpstat -f subscription_status antimalware | grep "xpire" | grep Virus | wc -l` != "0" ]]; then AVEXP="${RED}${TXT}Expiration"; fi; ISUPD=1; fi
+      if [[ $BLADES == *"ABot"* ]]; then if [[ -e $FWDIR/amw/update/Version ]]; then ABUPD=`date -r $FWDIR/amw/update/Version +"%b %d %Y @%H:%M" 2>/dev/null | tr '@' '\`'`; if ((($NOW-`date -r $FWDIR/amw/update/Version +%s 2>/dev/null`) > 604800 )); then ABUPD="${RED}${TXT}${ABUPD}"; fi; else ABUPD="${RED}${TXT}Initial state"; fi; if [[ `cpstat -f subscription_status antimalware | grep "xpire" | grep Bot | wc -l` != "0" ]]; then ABEXP="${RED}${TXT}Expiration"; fi; ISUPD=1; fi
+      if [[ $BLADES == *"GeoP"* ]]; then if [[ -e $FWDIR/tmp/geo_location_tmp/updates/IpToCountry.csv ]]; then GEOUPD=`date -r $FWDIR/tmp/geo_location_tmp/updates/IpToCountry.csv +"%b %d %Y @%H:%M" 2>/dev/null | tr '@' '\`'`; if ((($NOW-`date -r $FWDIR/tmp/geo_location_tmp/updates/IpToCountry.csv +%s 2>/dev/null`) > 604800 )); then GEOUPD="${RED}${TXT}${GEOUPD}"; fi; else GEOUPD="${RED}${TXT}Initial state"; fi; ISUPD=1; fi
+	  if [[ `egrep $'has_addr_info|:monitor_only' $FWDIR/state/local/FW1/local.set | grep -A1 addr | grep ':monitor_only (true)' | wc -l` == "0" ]]; then SPOOF="Prevent"; else SPOOF="${RED}${TXT}Detect"; fi
+	  if [[ `grep ":has_addr_info (false)" $FWDIR/state/local/FW1/local.set | wc -l` != "0" ]]; then SPOOF="${RED}${TXT}None"; fi
+	  if [[ `fw ctl get int fw_antispoofing_enabled` == *"0" ]]; then SPOOF="${RED}${TXT}None"; fi
+	  if [[ `dynamic_objects -l | tr -d '\n'` != *"empty"* ]] && [[ `dynamic_objects -l | tr -d '\n'` != *"not exist"* ]]; then DYNOBJ="${CYAN}Dynamic Objects!"; ISUPD=1; fi
+	  else
+	    if [[ `cp_conf client get` == *'ny'* ]]; then GUICLIENT="${RED}${TXT}Any"; else GUICLIENT="Defined"; fi
+		if [[ `grep ": ($HOST$\|ipaddr (" $MDS_FWDIR/conf/objects_5_0.C | grep -A1 ": ($HOST" | tac | tr -d '()\t: ' | tr '\n' ' ' | sed -e "s/^ipaddr//" -e "s/ $//"` != `grep $HOST /etc/hosts` ]]; then MGMTNAME="${RED}${TXT}Object name or IP unlike /etc/hosts (sk42071)"; else MGMTNAME="Consistent"; fi
+		if [[ "$SYSTEM" == *'Standby'* ]]; then ICANAME="-"; elif [[ `cpca_client lscert -dn "cp_mgmt," -stat Valid -kind SIC | grep Subject | head -n1 | sed 's/^.*O=//' | head -c-7 | sed -e 's/[.]*$//'` != "$HOST" ]]; then ICANAME="${RED}${TXT}Unlike Hostname (sk42071)"; else ICANAME="Consistent"; fi
+		if [[ `grep -B3 :ClassName\ \(host_ckp\) $MDS_FWDIR/conf/objects_5_0.C | grep :\ \( | tr -d ':(\t' | tr '\n' ' '` != *"$HOST"* ]]; then MGMTHOST="${RED}${TXT}Security Management not defined as host"; else MGMTHOST="Security Management defined as host"; fi
+    fi
+    case `echo ${OS#*R*}` in 77.30) : ;; *) [ $ISGW == 0 ] && { CPMSTAT=`$FWDIR/scripts/cpm_status.sh | cut -c 43-`; APISTAT=`api status | grep 'Overall' | sed 's/Overall API Status: //'`; APIVER=`ls $FWDIR/api/docs/data/ | tr 'v\n' ' ' | awk '{print $NF}'`; } esac
+    if [[ `grep "ALL: ALL" /etc/hosts.allow | wc -l` == "0" ]]; then ACCESS="Defined"; else ACCESS="${RED}${TXT}Any"; fi
+    if [[ -e /proc/net/vlan/config ]]; then if [[ `cat /proc/net/vlan/config | sed '0,/VID/d' | awk '{print $NF}' | sort -u | wc -l` != "0" ]]; then VLANS="Defined"; if [[ `cat /proc/net/vlan/config | sed '0,/VID/d' | awk '{print $NF}' | sort -u | xargs -I {} grep interface:{}: /config/db/initial | grep ipaddr | wc -l` != "0" ]]; then VLANS="${RED}${TXT}IP on VLAN trunk not supported - sk88700"; fi; fi; fi
+    ROOT=`df / | grep " /" | tr '%' ' ' | awk '{print $(NF-1)}'`; if [[ $ROOT -gt "69" ]]; then ROOT="${RED}${TXT}${ROOT}%"; else ROOT+="%"; fi;
+    VARLOG=`df /var/log | grep " /" | tr '%' ' ' | awk '{print $(NF-1)}'`; if [[ $VARLOG -gt "69" ]]; then VARLOG="${RED}${TXT}${VARLOG}%"; else VARLOG+="%"; fi;
+    UPTIME=`</proc/uptime`; UPTIME=${UPTIME%%.*}
+    MINS=$((UPTIME/60%60)); HOURS=$((UPTIME/60/60%24)); DAYS=$((UPTIME/60/60/24))
+    if     [[ $DAYS -gt "3" ]]; then UPTIME="$DAYS days"
+      elif [[ $DAYS -ne "0" ]]; then UPTIME="$DAYS days, $HOURS hours"
+      elif [[ $DAYS -eq "0" && $HOURS -eq "0" ]]; then UPTIME="$MINS minutes"
+      else UPTIME="$HOURS hours, $MINS minutes"
+    fi
+  }
+  load;
+
+# Main menu
+
+while true
+do
+  clear
+  echo "-------------------------------------------------- ccc v$Version -"
+  if [[ -n $UPDT ]]; then echo "  ${CYAN}New version ${BOLD}${Update}${NORM}${CYAN} available! ${WARN}[${CYAN}v${WARN}iew] [${CYAN}i${WARN}nstall]${NORM}"
+  echo "-------------------------------------------------------------"; fi
+  echo -n "  $HOST"; if [[ $ISGW -eq "0" ]]; then echo " > $HOSTIP"; else echo; fi
+  echo "-------------------------------------------------------------"
+  case $i in
+    0)	echo "  System     ${BOLD}${SYSTEM}${NORM}"
+	if [[ -n $VSTYPE ]]; then echo "  Type       ${BOLD}${VSTYPE}${NORM}"; else echo "  Type       ${BOLD}${TYPE}${NORM}"; fi
+	echo "  OS         ${BOLD}R${OS#*R*}${NORM} GAiA ${BOLD}${KERNEL}${NORM} JHF (Take ${BOLD}${JUMBO}${NORM}) @ ${BOLD}${OSMODE}-bit${NORM}"
+	echo "  CPUSE      ${BOLD}Build ${CPUSE}${NORM} | Host access: ${BOLD}${ACCESS}${NORM}"
+	[ $ISGW == 1 ] && echo "  CPU        ${BOLD}${CORE} Cores${NORM} ${LICS}| SMT: ${BOLD}$SMT${NORM} | Load ${BOLD}$LOAD${NORM}" || echo "  CPU        ${BOLD}${CORE} Cores${NORM} | Load ${BOLD}$LOAD${NORM}"
+	echo "  RAM        ${BOLD}${RAM} GB${NORM} (Free: ${BOLD}${FREE} GB${NORM}) | ${SWAP}";
+	if [[ $ISGW -eq "1" ]]; then
+	  echo "  SecureXL   ${BOLD}$SXL${NORM} | Multi-Queue Interfaces ${BOLD}$CPMQ${NORM}"
+	  echo "  CoreXL     ${BOLD}$CXL${NORM} (${BOLD}$LIC Cores${NORM}) | Dynamic Dispatcher: ${BOLD}$DYN${NORM}"
+	fi
+	echo "  Core dumps ${BOLD}${DUMPS}${NORM} | Crash dumps: ${BOLD}${CRASH}${NORM}"
+	echo "  Disk use / ${BOLD}${ROOT}${NORM} | /var/log/ ${BOLD}${VARLOG}${NORM}"
+	echo "  Uptime     ${BOLD}${UPTIME}${NORM} | NTP: ${BOLD}${NTIME}${NORM}"
+	echo "-------------------------------------------------------------"
+	if [[ $ISGW -eq "0" ]]; then
+	  echo "  GUI Client ${BOLD}${GUICLIENT}${NORM}"
+	  case `echo ${OS#*R*}` in 77.30) : ;; *) echo -e "  CPM Status ${BOLD}${CPMSTAT}${NORM}\n  ICA Name   ${BOLD}${ICANAME}${NORM}\n  MGMT API   ${BOLD}${APISTAT}${NORM} | Version ${BOLD}${APIVER}${NORM}\n  MGMT Name  ${BOLD}${MGMTNAME}${NORM}\n  MGMT Host  ${BOLD}${MGMTHOST}${NORM}"; esac
+	  echo "-------------------------------------------------------------"
+	fi
+	if [[ $ISGW -eq "1" ]]; then
+	  echo "  Managed by ${BOLD}$MGMT${NORM} (IP: ${BOLD}${MGIP:1:${#MGIP}-2}${NORM})"
+	  if [[ -n $VSTYPE ]]; then if [[ $VSTYPE == *"Switch"* ]] || [[ $VSTYPE == *"Router"* ]]; then echo "  Policy     ${BOLD}<Not applicable>${NORM}"; else echo "  Policy     ${BOLD}${INST}${NORM} - ${BOLD}${TIME}${NORM}"; fi; else echo "  Policy     ${BOLD}${INST}${NORM} - ${BOLD}${TIME}${NORM}"; fi
+	  if [[ -n $VSTYPE ]]; then if [[ $VSTYPE == *"Switch"* ]] || [[ $VSTYPE == *"Router"* ]]; then echo "  Inspection ${BOLD}<Not applicable>${NORM}"; else echo "  Inspection ${BOLD}$STATE${NORM} | Address Spoofing: ${BOLD}$SPOOF${NORM}"; fi; else echo "  Inspection ${BOLD}$STATE${NORM} | Address Spoofing: ${BOLD}$SPOOF${NORM}"; fi
+	  if [[ -n $VSTYPE ]]; then if [[ $VSTYPE == *"Switch"* ]] || [[ $VSTYPE == *"Router"* ]]; then echo "  Blades     ${BOLD}<Not applicable>${NORM}"; else echo "  Blades     ${BOLD}${BLADES}${NORM}"; fi; else echo "  Blades     ${BOLD}${BLADES}${NORM}"; fi
+	  echo "-------------------------------------------------------------"
+	  if [[ $BLADES == *"IPS"*  ]]; then echo "  IPS        ${BOLD}${IPSUPD}${NORM} | ${BOLD}${IPSMODE}${NORM} | ${BOLD}${IPSBYPASS}${NORM}"; fi
+	  if [[ $BLADES == *"AppC"* ]]; then echo "  AppC       ${BOLD}${APPUPD}${NORM}"; fi
+	  if [[ $BLADES == *"URLF"* ]]; then echo "  URLF       ${BOLD}${URLUPD}${NORM}"; fi
+	  if [[ $BLADES == *"ABot"* ]]; then echo "  ABot       ${BOLD}${ABUPD}   ${ABEXP}${NORM}"; fi
+	  if [[ $BLADES == *"AV"*   ]]; then echo "  AV         ${BOLD}${AVUPD}   ${AVEXP}${NORM}"; fi
+	  if [[ $BLADES == *"GeoP"* ]]; then echo "  GeoP       ${BOLD}${GEOUPD}${NORM}"; fi
+	  if [[ -n $DYNOBJ ]]; then echo "  INFO       ${BOLD}${DYNOBJ}${NORM}"; fi
+	  if [[ $ISUPD -eq "1" ]]; then echo "-------------------------------------------------------------"; fi
+	fi
+	if [[ -n $MAC ]]; then echo "  Serial     ${BOLD}${SERIAL}${NORM} | MAC: ${BOLD}${MAC}${NORM}"; fi
+	if [[ -n $MAC ]]; then echo "  PSU        ${BOLD}${PSU}${NORM}"; fi
+	echo "  Interfaces ${BOLD}${DRIVER}${NORM}"
+	if [[ -n $SYNC  ]]; then echo "  SYNC Ifs   ${BOLD}${SYNC}${NORM}"; fi
+	if [[ -n $VLANS ]]; then echo "  VLANs      ${BOLD}${VLANS}${NORM}"; fi
+	if [[ -n $SNMP ]]; then echo "  SNMP       ${BOLD}${SNMP}${NORM}"; fi
+	echo "  RAID       ${BOLD}${RAID}${NORM}"
+	echo "-------------------------------------------------------------"
+	echo
+	echo "  ${ENAB}MAIN MENU${NORM}"
+	echo
+	echo -n " "; [ $j ==  1 ] && echo -n "${S}"; echo " Firewall Management & Gateway > ${NORM}"
+	echo -n " "; [ $j ==  2 ] && echo -n "${S}"; echo " Firewall Management > ${NORM}"
+	echo -n " "; [ $j ==  3 ] && echo -n "${S}"; echo " Firewall Gateway > ${NORM}"
+	echo -n " "; [ $j ==  4 ] && echo -n "${S}"; echo " Firewall Troubleshooting > ${NORM}"
+	echo -n " "; [ $j ==  5 ] && echo -n "${S}"; echo " Performance Optimization > ${NORM}"
+	echo -n " "; [ $j ==  6 ] && echo -n "${S}"; echo " VPN Troubleshooting > ${NORM}"
+	echo -n " "; [ $j ==  7 ] && echo -n "${S}"; echo " VSX Troubleshooting > ${NORM}"
+	echo -n " "; [ $j ==  8 ] && echo -n "${S}"; echo " MDS Troubleshooting > ${NORM}"
+	echo -n " "; [ $j ==  9 ] && echo -n "${S}"; echo " QoS Troubleshooting > ${NORM}"
+	echo -n " "; [ $j == 10 ] && echo -n "${S}"; echo " Threat Emulation > ${NORM}"
+	echo -n " "; [ $j == 11 ] && echo -n "${S}"; echo " Threat Extraction > ${NORM}"
+	 ;;
+    1)	echo "  MAIN < ${ENAB}FIREWALL MANAGEMENT & GATEWAY${NORM}"
+	echo
+	echo -n " "; [ $k ==  1 ] && echo -n "${S}"; echo "${CYAN} cat /etc/cp-release ${NORM} Show Check Point version"; [ $k == 1 ] && CMD="cat /etc/cp-release; cpinfo -y all 2>/dev/null | grep JUMBO | tail -n1"
+	echo -n " "; [ $k ==  2 ] && echo -n "${S}"; echo "${CYAN} clish -c \"show installer status build\" ${NORM} Show CPUSE build number"; [ $k == 2 ] && CMD="clish -c \"show installer status build\""
+	echo -n " "; [ $k ==  3 ] && echo -n "${S}"; echo "${CYAN} cplic print -x; cpstat os -f licensing ${NORM} Show installed CP licenses"; [ $k == 3 ] && CMD="cplic print -x | more; cpstat os -f licensing | more"
+	echo -n " "; [ $k ==  4 ] && echo -n "${S}"; echo "${CYAN} cpvinfo $DADIR/bin/DAService | grep -E 'Build|Minor' ${NORM} Show CPUSE build"; [ $k == 4 ] && CMD="cpvinfo $DADIR/bin/DAService | grep -E 'Build|Minor'"
+	echo -n " "; [ $k ==  5 ] && echo -n "${S}"; echo "${CYAN} cpconfig ${NORM} Open cpconfig utility"; [ $k == 5 ] && CMD="cpconfig"
+	echo -n " "; [ $k ==  6 ] && echo -n "${S}"; echo "${CYAN} cpstat os -f ifconfig ${NORM} Show advanced interface summary"; [ $k == 6 ] && CMD="cpstat os -f ifconfig; ls -1 /sys/class/net | grep -v ^lo | xargs -I % sh -c 'ethtool %; ethtool -i %' | grep '^driver\|Speed\|Duplex\|Settings' | sed \"s/^/ /g\" | tr -d \"\t\" | tr -d \"\n\" | sed \"s/Settings for/\nSettings for/g\"; echo"
+	echo -n " "; [ $k ==  7 ] && echo -n "${S}"; echo "${CYAN} df -h ${NORM} Show available disk space"; [ $k == 7 ] && CMD="df -h"
+	echo -n " "; [ $k ==  8 ] && echo -n "${S}"; echo "${CYAN} cpstat os -f cpu; cpstat os -f memory ${NORM} Show CPU and memory statistics"; [ $k == 8 ] && CMD="cpstat os -f cpu; cpstat os -f memory"
+	echo -n " "; [ $k ==  9 ] && echo -n "${S}"; echo "${CYAN} cpview ${NORM} Start CPview"; [ $k == 9 ] && CMD="cpview"
+	echo -n " "; [ $k == 10 ] && echo -n "${S}"; echo "${CYAN} clish -c \"show configuration\" ${NORM} Show running Clish configuration"; [ $k == 10 ] && CMD="clish -c \"show configuration\" | more"
+	echo -n " "; [ $k == 11 ] && echo -n "${S}"; echo "${CYAN} enabled_blades ${NORM} Show enabled blades"; [ $k == 11 ] && CMD="enabled_blades"
+	echo -n " "; [ $k == 12 ] && echo -n "${S}"; echo "${CYAN} cpwd_admin list ${NORM} Show CP process status"; [ $k == 12 ] && CMD="cpwd_admin list"
+	echo -n " "; [ $k == 13 ] && echo -n "${S}"; echo "${CYAN} cpinfo -y all ${NORM} Show installed packages & Jumbo Hotfix Take"; [ $k == 13 ] && CMD="cpinfo -y all | more"
+	echo -n " "; [ $k == 14 ] && echo -n "${S}"; echo "${CYAN} cpopenssl ciphers ${NORM} Show TLS version used by GAiA Portal - sk163542"; [ $k == 14 ] && CMD="echo; cpopenssl ciphers -v '$(grep SSLCipherSuite /web/templates/httpd-ssl.conf.templ | awk '{print $2}')' | grep -i tls | awk '{print \$2}' | sort --unique"
+	case `last -1 -w 2>/dev/null | wc -l` in 0)
+		echo -n " "; [ $k == 15 ] && echo -n "${S}"; echo "${CYAN} last -20 -x ${NORM} Show last 20 logins by name"; [ $k == 15 ] && CMD="last -20 -x" ;;
+	*)
+		echo -n " "; [ $k == 15 ] && echo -n "${S}"; echo "${CYAN} last -20 -w ${NORM} Show last 20 logins by name"; [ $k == 15 ] && CMD="last -20 -w" ;;
+	esac
+	echo -n " "; [ $k == 16 ] && echo -n "${S}"; echo "${CYAN} last -20 -i ${NORM} Show last 20 logins by IP"; [ $k == 16 ] && CMD="last -20 -i"
+	echo -n " "; [ $k == 17 ] && echo -n "${S}"; echo "${CYAN} ntpstat ${NORM} Show NTP status"; [ $k == 17 ] && CMD="ntpstat"
+	echo -n " "; [ $k == 18 ] && echo -n "${S}"; echo "${CYAN} ntpq ${NORM} Open NTP query utility"; [ $k == 18 ] && CMD="ntpq"
+	echo -n " "; [ $k == 19 ] && echo -n "${S}"; echo "${CYAN} ls -lA /var/log/dump/usermode/ ${NORM} Show core dumps"; [ $k == 19 ] && CMD="ls -lA /var/log/dump/usermode/"
+	echo -n " "; [ $k == 20 ] && echo -n "${S}"; echo "${CYAN} ls -lA /var/log/crash/ ${NORM} Show crash dumps"; [ $k == 20 ] && CMD="ls -lA /var/log/crash/"
+	echo -n " "; [ $k == 21 ] && echo -n "${S}"; echo "${WARN} clish -c \"installer agent update\" ${NORM} Update CPUSE Deployment Agent"; [ $k == 21 ] && CMD="clish -c \"installer agent update\""
+	echo -n " "; [ $k == 22 ] && echo -n "${S}"; echo "${WARN} cpstop ${NORM} Stop all Check Point Processes"; [ $k == 22 ] && CMD="cpstop"
+	echo -n " "; [ $k == 23 ] && echo -n "${S}"; echo "${ENAB} cpstart ${NORM} Start all Check Point Processes"; [ $k == 23 ] && CMD="cpstart"
+	echo
+	echo "  -- Standalone Firewall & Management -----------------------------------------------------------"
+	echo -n " "; [ $k ==  24 ] && echo -n "${S}"; echo "${WARN} cpwd_admin stop -name FWM -path "$FWDIR/bin/fw" -command "fw kill fwm" ${NORM} Stop Firewall Management only"; [ $k == 24 ] && CMD="cpwd_admin stop -name FWM -path \"$FWDIR/bin/fw\" -command \"fw kill fwm\""
+	echo -n " "; [ $k ==  25 ] && echo -n "${S}"; echo "${ENAB} cpwd_admin start -name FWM -path "$FWDIR/bin/fwm" -command "fwm" ${NORM} Start Firewall Management only"; [ $k == 25 ] && CMD="cpwd_admin start -name FWM -path \"$FWDIR/bin/fwm\" -command \"fwm\""
+	 ;;
+    2)	echo "  MAIN < ${ENAB}FIREWALL MANAGEMENT${NORM}"
+	echo
+	echo -n " "; [ $l ==  1 ] && echo -n "${S}"; echo "${CYAN} fwm ver ${NORM} Show version"; [ $l == 1 ] && CMD="fwm ver"
+	case `echo ${OS#*R*}` in 77.30)
+		echo -n " "; [ $l == 2 ] && echo -n "${S}"; echo "${CYAN} cpstat mg ${NORM} Show Management Server & Management-HA status + connected management clients"; [ $l == 2 ] && CMD="cpstat mg" ;;
+	*)
+		echo -n " "; [ $l == 2 ] && echo -n "${S}"; echo "${CYAN} cpstat mg; cpm_status.sh; server_status.sh; api status ${NORM} Show Management Server & Management-HA & API status + connected management clients"; [ $l == 2 ] && CMD="cpstat mg; $FWDIR/scripts/cpm_status.sh; echo; $FWDIR/scripts/server_status.sh; api status"
+	esac
+	echo -n " "; [ $l ==  3 ] && echo -n "${S}"; echo "${CYAN} cpstat cpsead ${NORM} Show status of SmartEvent Correlation Unit"; [ $l == 3 ] && CMD="cpstat cpsead"
+	echo -n " "; [ $l ==  4 ] && echo -n "${S}"; echo "${CYAN} migrate export $(hostname)_export_$(date +%Y%m%d%H%M) ${NORM} Export management configuration"; [ $l == 4 ] && CMD="$FWDIR/bin/upgrade_tools/migrate export $(hostname)_export_$(date +%Y%m%d%H%M)"
+	echo -n " "; [ $l ==  5 ] && echo -n "${S}"; echo "${CYAN} rs_db_tool -operation list ${NORM} Show DAIP gateways database entries"; [ $l == 5 ] && CMD="rs_db_tool -operation list"
+	echo -n " "; [ $l ==  6 ] && echo -n "${S}"; echo "${CYAN} vpn overlap_encdom ${NORM} Show overlapping VPN encryption domains (WAIT until result is shown)"; [ $l == 6 ] && CMD="vpn overlap_encdom"
+	echo -n " "; [ $l ==  7 ] && echo -n "${S}"; echo "${CYAN} cp_conf client get ${NORM} Show GUI clients"; [ $l == 7 ] && CMD="cp_conf client get"
+	echo -n " "; [ $l ==  8 ] && echo -n "${S}"; echo "${CYAN} cp_conf finger get ${NORM} Show ICA certificate's fingerprint"; [ $l == 8 ] && CMD="cp_conf finger get"
+	echo -n " "; [ $l ==  9 ] && echo -n "${S}"; echo "${CYAN} cpca_client lscert ${NORM} Show ICA certificate's initialization name"; [ $l == 9 ] && CMD="echo; echo -n ' '; cpca_client lscert -dn \"cp_mgmt,\" -stat Valid -kind SIC | grep Subject | head -n1 | sed 's/^.*O=//' | head -c-7 | sed -e 's/[.]*$//'; echo; echo"
+	echo -n " "; [ $l ==  10 ] && echo -n "${S}"; echo "${CYAN} tail -n 20 \$FWDIR/log/fwm.elg ${NORM} Show last 20 entries in FWM log"; [ $l == 10 ] && CMD="tail -n 20 $FWDIR/log/fwm.elg | more"
+	case `echo ${OS#*R*}` in 77.30)
+		echo -n " "; [ $l == 11 ] && echo -n "${S}"; echo "${CYAN} vpn mcc lca ${NORM} List all installed CA Certificate Authorities"; [ $l == 11 ] && CMD="vpn mcc lca | more"
+		echo -n " "; [ $l == 12 ] && echo -n "${S}"; echo "${CYAN} vpn mcc show internal_ca ${NORM} Show details for Internal_CA"; [ $l == 12 ] && CMD="vpn mcc show internal_ca" ;;
+	*)
+		echo -n " "; [ $l == 11 ] && echo -n "${S}"; echo "${CYAN} mcc lca ${NORM} List all installed CA Certificate Authorities"; [ $l == 11 ] && CMD="mcc lca | more"
+		echo -n " "; [ $l == 12 ] && echo -n "${S}"; echo "${CYAN} mcc show internal_ca ${NORM} Show details for Internal_CA"; [ $l == 12 ] && CMD="mcc show internal_ca"
+	esac
+	echo -n " "; [ $l == 13 ] && echo -n "${S}"; echo "${CYAN} cpca_client lscert | grep -A 2 cp_mgmt ${NORM} Show ICA certificate's status"; [ $l == 13 ] && CMD="cpca_client lscert | grep -A 2 cp_mgmt"
+	echo -n " "; [ $l == 14 ] && echo -n "${S}"; echo "${CYAN} cpca_client set_mgmt_tool print ${NORM} Show ICA Management Tool status"; [ $l == 14 ] && CMD="cpca_client set_mgmt_tool print"
+	echo -n " "; [ $l == 15 ] && echo -n "${S}"; echo "${WARN} cpca_client set_mgmt_tool on -no_ssl ${NORM} Start the ICA Management Tool; Open it with your Web browser at http://$(grep $(hostname)$ /etc/hosts | awk '{print $1}'):18265"; [ $l == 15 ] && CMD="cpca_client set_mgmt_tool on -no_ssl"
+	echo -n " "; [ $l == 16 ] && echo -n "${S}"; echo "${ENAB} cpca_client set_mgmt_tool off ${NORM} Stop the ICA Management Tool"; [ $l == 16 ] && CMD="cpca_client set_mgmt_tool off"
+	echo -n " "; [ $l == 17 ] && echo -n "${S}"; echo "${WARN} \$RTDIR/scripts/stopSmartView ${NORM} Stop SmartView"; [ $l == 17 ] && CMD="$RTDIR/scripts/stopSmartView"
+	echo -n " "; [ $l == 18 ] && echo -n "${S}"; echo "${ENAB} \$RTDIR/scripts/startSmartView ${NORM} Start SmartView"; [ $l == 18 ] && CMD="$RTDIR/scripts/startSmartView"
+	echo -n " "; [ $l == 19 ] && echo -n "${S}"; echo "${ENAB} fwm dbload $MGMT ${NORM} Install Database on $MGMT"; [ $l == 19 ] && CMD="fwm dbload $MGMT"
+	echo -n " "; [ $l == 20 ] && echo -n "${S}"; echo "${WARN} fw debug fwm on TDERROR_ALL_ALL=5 ${NORM} Enable FWM Debugging"; [ $l == 20 ] && CMD="fw debug fwm on TDERROR_ALL_ALL=5; tail -F $FWDIR/log/fwm.elg &> /var/tmp/fwm_debug.txt"
+	echo -n " "; [ $l == 21 ] && echo -n "${S}"; echo "${ENAB} fw debug fwm off ${NORM} Disable FWM Debugging"; [ $l == 21 ] && CMD="fw debug fwm off; more /var/tmp/fwm_debug.txt"
+	 ;;
+    3)	echo "  MAIN < ${ENAB}FIREWALL GATEWAY${NORM}"
+	echo
+	echo -n " "; [ $m ==  1 ] && echo -n "${S}"; echo "${CYAN} fw stat; ips stat; fw stat -b AMW; cpstat -f all polsrv; cp_conf sic state ${NORM} Show FW + IPS/TP + Policy Server + SIC status"; [ $m == 1 ] && CMD="fw stat; echo; ips stat; echo 'IPS Update Time: '$IPSUPD2; echo; ips bypass stat; echo -n 'IPS profile name: '; cat $FWDIR/state/local/AMW/local.set | grep -A15 malware_profiles | grep :name | awk '{print \$2}' | tr -d '()'; echo; fw stat -b AMW; echo; cpstat -f subscription_status antimalware; cpstat -f update_status antimalware; ls -l $FWDIR/conf/*.csv; cpstat -f all polsrv; cp_conf sic state"
+	echo -n " "; [ $m ==  2 ] && echo -n "${S}"; echo "${CYAN} fw getifs ${NORM} Show interfaces, IP addresses + netmask"; [ $m == 2 ] && CMD="fw getifs | more"
+	echo -n " "; [ $m ==  3 ] && echo -n "${S}"; echo "${CYAN} fw ctl iflist ${NORM} List all interface names (for use with connStat - sk85780)"; [ $m == 3 ] && CMD="fw ctl iflist | more"
+	echo -n " "; [ $m ==  4 ] && echo -n "${S}"; echo "${CYAN} cpstat blades ${NORM} Quickly show top rule hits, connections and packets statistics"; [ $m == 4 ] && CMD="cpstat blades"
+	echo -n " "; [ $m ==  5 ] && echo -n "${S}"; echo "${CYAN} cpstat fw -f policy ${NORM} Show policy information and interface statistics"; [ $m == 5 ] && CMD="cpstat fw -f policy | more"
+	echo -n " "; [ $m ==  6 ] && echo -n "${S}"; echo "${CYAN} netstat -atun ${NORM} Show established connections"; [ $m == 6 ] && CMD="netstat -atun | more"
+	echo -n " "; [ $m ==  7 ] && echo -n "${S}"; echo "${CYAN} fw ctl arp -n ${NORM} Show all proxy arp's and active local.arp entries"; [ $m == 7 ] && CMD="fw ctl arp -n | more"
+	echo -n " "; [ $m ==  8 ] && echo -n "${S}"; echo "${CYAN} fw ctl zdebug -T drop ${NORM} Show dropped connections + reason (with Timestamp)"; [ $m == 8 ] && CMD="fw ctl zdebug -T drop | more"
+	echo -n " "; [ $m ==  9 ] && echo -n "${S}"; echo "${CYAN} fw tab -s -t connections ${NORM} Show load on FW gateway"; [ $m == 9 ] && CMD="fw tab -s -t connections | more"
+	echo -n " "; [ $m == 10 ] && echo -n "${S}"; echo "${CYAN} adlog a dc; adlog a s ${NORM} Identity Awareness > Show Domain Controllers status"; [ $m == 10 ] && CMD="adlog a dc; adlog a s"
+	echo -n " "; [ $m == 11 ] && echo -n "${S}"; echo "${CYAN} adlog a query all ${NORM} Identity Awareness > Show this gateway's complete adlog database"; [ $m == 11 ] && CMD="adlog a query all | more"
+	echo -n " "; [ $m == 12 ] && echo -n "${S}"; echo "${CYAN} pdp status show ${NORM} Identity Awareness > Show pdp status information"; [ $m == 12 ] && CMD="pdp status show"
+	echo -n " "; [ $m == 13 ] && echo -n "${S}"; echo "${CYAN} pdp monitor all ${NORM} Identity Awareness > Show information for all connected sessions"; [ $m == 13 ] && CMD="pdp monitor all | more"
+	echo -n " "; [ $m == 14 ] && echo -n "${S}"; echo "${CYAN} pdp connections pep ${NORM} Identity Awareness > Show PDP to PEP connection table"; [ $m == 14 ] && CMD="pdp connections pep | more"
+	echo -n " "; [ $m == 15 ] && echo -n "${S}"; echo "${CYAN} pep show stat ${NORM} Identity Awareness > Show pep status information"; [ $m == 15 ] && CMD="pep show stat"
+	echo -n " "; [ $m == 16 ] && echo -n "${S}"; echo "${CYAN} pep show pdp all ${NORM} Identity Awareness > Show all connected pdp's"; [ $m == 16 ] && CMD="pep show pdp all"
+	echo -n " "; [ $m == 17 ] && echo -n "${S}"; echo "${CYAN} pep show user all ${NORM} Identity Awareness > Show all sessions with information summary"; [ $m == 17 ] && CMD="pep show user all | more"
+	echo -n " "; [ $m == 18 ] && echo -n "${S}"; echo "${CYAN} dynamic_objects -l ${NORM} Show all dynamic objects"; [ $m == 18 ] && CMD="dynamic_objects -l | more"
+	echo -n " "; [ $m == 19 ] && echo -n "${S}"; echo "${CYAN} fwaccel stat ${NORM} Show acceleration status on FW gateway"; [ $m == 19 ] && CMD="fwaccel stat | more"
+	echo -n " "; [ $m == 20 ] && echo -n "${S}"; echo "${CYAN} fwaccel stats ${NORM} Show acceleration status on FW gateway"; [ $m == 20 ] && CMD="fwaccel stats | more"
+	echo -n " "; [ $m == 21 ] && echo -n "${S}"; echo "${CYAN} fwaccel stats -s ${NORM} Show acceleration status on FW gateway"; [ $m == 21 ] && CMD="fwaccel stats -s | more"
+	echo -n " "; [ $m == 22 ] && echo -n "${S}"; echo "${CYAN} fw tab -t sam_blocked_ips ${NORM} Show IPs blocked by SAM"; [ $m == 22 ] && CMD="fw tab -t sam_blocked_ips | more"
+	echo -n " "; [ $m == 23 ] && echo -n "${S}"; echo "${CYAN} grep \$FWDIR/state/local/FW1/local.set ${NORM} Show Geo Policy on FW gateway"; [ $m == 23 ] && CMD="if [ -z `pidof in.geod` ]; then echo; echo 'Geo Policy Blade not active!'; echo; else echo; echo -n '### GEO POLICY: '; cat $FWDIR/state/local/FW1/local.set | egrep -A2 geo_settings_profile | tail -n1 | tr -d '():val ' | sed -e 's/$/ ###/'; echo; echo -e ' Country\t\tDirection\tAction'; echo -n ' '; printf -- '-%.0s' {1..46}; egrep -B4 country_dispaly_name $FWDIR/state/local/FW1/local.set | tac | sed '/alert/d' | tr -d '():' | sed ':a;N;\$!ba;s/\n/ /g' | sed 's/ -- /\n/g' | sed 's/country_dispaly_name//g' | sed 's/country_code /(/g' | sed 's/ direction /)\t\t/g' | sed 's/ block true/\tBLOCK/g' | sed 's/ block false/\tACCEPT/g' | sort; echo; fi"
+	echo -n " "; [ $m == 24 ] && echo -n "${S}"; echo "${WARN} fwaccel off ${NORM} Disable SecureXL acceleration"; [ $m == 24 ] && CMD="fwaccel off"
+	echo -n " "; [ $m == 25 ] && echo -n "${S}"; echo "${ENAB} fwaccel on ${NORM} Enable SecureXL acceleration"; [ $m == 25 ] && CMD="fwaccel on"
+	echo -n " "; [ $m == 26 ] && echo -n "${S}"; echo "${WARN} fw unloadlocal; fw stat ${NORM} Unload security policy on localhost"; [ $m == 26 ] && CMD="fw unloadlocal; echo 1 > /proc/sys/net/ipv4/ip_forward; fw stat"
+	echo -n " "; [ $m == 27 ] && echo -n "${S}"; echo "${ENAB} fw fetch localhost; fw stat ${NORM} Reload security policy from localhost"; [ $m == 27 ] && CMD="fw fetch localhost; fw stat"
+	echo -n " "; [ $m == 28 ] && echo -n "${S}"; echo "${ENAB} fw fetch $MGMT; fw stat ${NORM} Reload security policy from FW management"; [ $m == 28 ] && CMD="fw fetch $MGMT; fw stat"
+	case `echo ${OS#*R*}` in 77.30|R80.10)
+		echo -n " "; [ $m == 29 ] && echo -n "${S}"; echo "${WARN} fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off $ADD ${NORM} Disable Anti-Spoofing"; [ $m == 29 ] && CMD="fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off $ADD"
+		echo -n " "; [ $m == 30 ] && echo -n "${S}"; echo "${ENAB} fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on $ADD ${NORM} Enable Anti-Spoofing"; [ $m == 30 ] && CMD="fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on $ADD" ;;
+	*)
+		echo -n " "; [ $m == 29 ] && echo -n "${S}"; echo "${WARN} fw ctl set int fw_antispoofing_enabled 0 $ADD ${NORM} Disable Anti-Spoofing"; [ $m == 29 ] && CMD="fw ctl set int fw_antispoofing_enabled 0 $ADD"
+		echo -n " "; [ $m == 30 ] && echo -n "${S}"; echo "${ENAB} fw ctl set int fw_antispoofing_enabled 1 $ADD ${NORM} Enable Anti-Spoofing"; [ $m == 30 ] && CMD="fw ctl set int fw_antispoofing_enabled 1 $ADD"
+	esac
+	echo -n " "; [ $m == 31 ] && echo -n "${S}"; echo "${WARN} ips off; ips stat ${NORM} Disable IPS"; [ $m == 31 ] && CMD="ips off $ADD; ips stat"
+	echo -n " "; [ $m == 32 ] && echo -n "${S}"; echo "${ENAB} ips on; ips stat ${NORM} Enable IPS"; [ $m == 32 ] && CMD="ips on $ADD; ips stat"
+	echo -n " "; [ $m == 33 ] && echo -n "${S}"; echo "${WARN} fw amw unload; fw stat -b AMW ${NORM} Disable Threat Prevention"; [ $m == 33 ] && CMD="fw amw unload; fw stat -b AMW"
+	echo -n " "; [ $m == 34 ] && echo -n "${S}"; echo "${ENAB} fw amw fetch local; fw stat -b AMW ${NORM} Enable Threat Prevention"; [ $m == 34 ] && CMD="fw amw fetch local; fw stat -b AMW"
+	echo -n " "; [ $m == 35 ] && echo -n "${S}"; echo "${WARN} fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1 ${NORM} Disable Stateful Inspection"; [ $m == 35 ] && CMD="fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1"
+	echo -n " "; [ $m == 36 ] && echo -n "${S}"; echo "${ENAB} fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0 ${NORM} Enable Stateful Inspection"; [ $m == 36 ] && CMD="fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0"
+	echo "  -----------------------------------------------------------------------------------------------"
+	echo -n " "; [ $m == 37 ] && echo -n "${S}"; echo "${WARN} PANIC MODE ${NORM} (Disable IPS, Threat Prevention, Anti-Spoofing, SecureXL, Stateful Inspection)"; [ $m == 37 ] && CMD="ips off; fw amw unload; fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off; fwaccel off; fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1"
+	echo -n " "; [ $m == 38 ] && echo -n "${S}"; echo "${ENAB} NORMAL MODE ${NORM} (Enable IPS, Threat Prevention, Anti-Spoofing, SecureXL, Stateful Inspection)"; [ $m == 38 ] && CMD="ips on; fw amw fetch local; fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on; fwaccel off; fwaccel on; fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0"
+	;;
+    4)	echo "  MAIN < ${ENAB}FIREWALL TROUBLESHOOTING${NORM}"
+	echo
+	echo -n " "; [ $n == 1 ] && echo -n "${S}"; echo "${CYAN} fw monitor ${NORM} FW Monitor SuperTool"; [ $n == 1 ] && CMD="`base64 -id <<< aWYgW1sgYCRDUERJUi9iaW4vY3Bwcm9kX3V0aWwgRndJc0ZpcmV3YWxsTW9kdWxlIDI+L2Rldi9udWxsYCAhPSAqJzEnKiBdXTsgdGhlbiBlY2hvOyB0cHV0IGJvbGQ7IGVjaG8gJyBOb3QgYSBmaXJld2FsbCBnYXRld2F5ISc7IHRwdXQgc2dyMDsgZWNobzsgZWxzZSBlY2hvOyBwcmludGYgJyUucy0nIHsxLi42MH07IGVjaG87IGVjaG8gJyBGVyBNb25pdG9yIFN1cGVyVG9vbCc7IHByaW50ZiAnJS5zLScgezEuLjYwfTsgZWNobzsgZWNobzsgdHB1dCBib2xkOyBlY2hvIC1uICcgQWRkIGhvc3QgSVBzICc7IHRwdXQgc2dyMDsgZWNobyAtbiAnKGxlYXZlIGVtcHR5IGZvciBhbnkpOiAnOyByZWFkIF9ob3N0czsgYj0nMCc7IGNhc2UgJF9ob3N0cyBpbiAnJykgZWNobyAtbiAnICAgYW55ICc7IHRwdXQgc2V0YWYgMjsgZWNobyAnT0snOyB0cHV0IHNncjA7OyAqKSBfaG9zdHM9KCQoZWNobyAkX2hvc3RzIHwgdHIgJyw7OnwoKSM8PicgJyAnIHwgdHIgLXMgJyAnKSk7IGZvciBhIGluICR7X2hvc3RzW0BdfTsgZG8gaWYgW1sgYGlwY2FsYyAtbXMgJGFgID09IConPScqIF1dICYmIFtbICRhID09IConLicqIF1dOyB0aGVuIGVjaG8gLW4gJyAgICckYScgJzsgdHB1dCBzZXRhZiAyOyBlY2hvICdPSyc7IGI9JzEnOyB0cHV0IHNncjA7IGVsc2UgZWNobyAtbiAnICAgJyRhJyAnOyB0cHV0IHNldGFmIDE7IGVjaG8gJ0JhZCBzeW50YXghJzsgdHB1dCBzZ3IwOyBmaTsgZG9uZTsgZXNhYzsgZWNobzsgdHB1dCBib2xkOyBlY2hvIC1uICcgQWRkIHBvcnRzICc7IHRwdXQgc2dyMDsgZWNobyAtbiAnKGxlYXZlIGVtcHR5IGZvciBhbnkpOiAnOyByZWFkIF9wb3J0czsgZD0nMCc7IGNhc2UgJF9wb3J0cyBpbiAnJykgZWNobyAtbiAnICAgYW55ICc7IHRwdXQgc2V0YWYgMjsgZWNobyAnT0snOyB0cHV0IHNncjA7OyAqKSBfcG9ydHM9KCQoZWNobyAkX3BvcnRzIHwgdHIgJyw7OnwoKSM8PicgJyAnIHwgdHIgLXMgJyAnKSk7IGZvciBhIGluICR7X3BvcnRzW0BdfTsgZG8gaWYgW1sgJGEgIT0gKlteMC05XSogXV07IHRoZW4gZWNobyAtbiAnICAgJyRhJyAnOyB0cHV0IHNldGFmIDI7IGVjaG8gJ09LJzsgZD0nMSc7IHRwdXQgc2dyMDsgZWxzZSBlY2hvIC1uICcgICAnJGEnICc7IHRwdXQgc2V0YWYgMTsgZWNobyAnQmFkIHN5bnRheCEnOyB0cHV0IHNncjA7IGZpOyBkb25lOyBlc2FjOyBlY2hvOyB0cHV0IGJvbGQ7IGVjaG8gLW4gJyBBZGQgcHJvdG9jb2wgJzsgdHB1dCBzZ3IwOyBlY2hvIC1uICcodGNwLCB1ZHAsIGljbXApOiAnOyByZWFkIF9wcm90OyBjPScwJzsgY2FzZSAkX3Byb3QgaW4gJycpIGVjaG8gLW4gJyAgIGFueSAnOyB0cHV0IHNldGFmIDI7IGVjaG8gJ09LJzsgdHB1dCBzZ3IwOzsgKikgX3Byb3Q9KCQoZWNobyAkX3Byb3QgfCB0ciAnLDs6fCgpIzw+JyAnICcgfCB0ciAtcyAnICcpKTsgZm9yIGEgaW4gJHtfcHJvdFtAXX07IGRvIGNhc2UgJGEgaW4gdGNwfHVkcHxpY21wKSBlY2hvIC1uICcgICAnJGEnICc7IHRwdXQgc2V0YWYgMjsgZWNobyAnT0snOyBjPScxJzsgdHB1dCBzZ3IwOzsgKikgZWNobyAtbiAnICAgJyRhJyAnOyB0cHV0IHNldGFmIDE7IGVjaG8gJ1Vua25vd24gcHJvdG9jb2whJzsgdHB1dCBzZ3IwOyBlc2FjOyBkb25lOyBlc2FjOyBlY2hvOyB0cHV0IGJvbGQ7IGVjaG8gLW4gJyBDYXB0dXJlIHRvIGZpbGUgJzsgdHB1dCBzZ3IwOyByZWFkIC1wICcobGVhdmUgZW1wdHkgZm9yIHN0ZG91dCk6ICcgX2ZpbGU7IGlmIFtbIC1uICRfZmlsZSBdXTsgdGhlbiB0cHV0IHNldGFmIDI7IGVjaG8gLW4gJyAgIFNhdmluZyBvdXRwdXQgdG86ICc7IHRwdXQgc2dyMDsgZWNobyAkX2ZpbGU7IGVsc2UgdHB1dCBzZXRhZiAyOyBlY2hvICcgICBPdXRwdXQgdG8gQ0xJJzsgdHB1dCBzZ3IwOyBmaTsgZWNobzsgcHJpbnRmICclLnMtJyB7MS4uNjB9OyBlY2hvOyBfc3hsPScwJzsgdHB1dCBzZXRhYiAxOyB0cHV0IHNldGFmIDc7IHRwdXQgYm9sZDsgZWNobyAtbiAnIEV4ZWN1dGluZyA/ICc7IHRwdXQgc2dyMDsgZWNobyAtbiAnICc7IGlmIFtbIGBmdyBtb25pdG9yIC1oIDI+JjFgICE9IConLUYnKiBdXTsgdGhlbiBjYXNlIGBmd2FjY2VsIHN0YXQgfCBncmVwICdBY2NlbGVyYXRvciBTdGF0dXMgOicgfCBjdXQgLWMgMjItYCBpbiBvbikgX3N4bD0nMSc7IGVzYWM7IGZpOyBpZiBbWyAkX3N4bCA9PSAnMScgXV07IHRoZW4gX3J1bj0nZndhY2NlbCBvZmY7IGZ3IG1vbml0b3InOyBlbHNlIF9ydW49J2Z3IG1vbml0b3InOyBmaTsgaWYgW1sgYGZ3IG1vbml0b3IgLWggMj4mMWAgIT0gKictRicqIF1dOyB0aGVuIF9ydW4rPScgLWUgIic7IGlmIFtbICRiID09ICcxJyAmJiAkZCA9PSAnMScgXV07IHRoZW4gX3J1bis9JygnOyBlbGlmIFtbICRiID09ICcxJyAmJiAkYyA9PSAnMScgXV07IHRoZW4gX3J1bis9JygnOyBmaTsgZm9yIGEgaW4gJHtfaG9zdHNbQF19OyBkbyBpZiBbWyBgaXBjYWxjIC1tcyAkYWAgPT0gKic9JyogXV0gJiYgW1sgJGEgPT0gKicuJyogXV07IHRoZW4gX3J1bis9J2hvc3QoJyRhJykgYW5kICc7IGZpOyBkb25lOyBpZiBbWyAkYiA9PSAnMScgJiYgJGQgPT0gJzEnIF1dOyB0aGVuIF9ydW49JHtfcnVuJT8/Pz8/fTsgX3J1bis9JyknOyBlbGlmIFtbICRiID09ICcxJyAmJiAkYyA9PSAnMScgXV07IHRoZW4gX3J1bj0ke19ydW4lPz8/Pz99OyBfcnVuKz0nKSc7IGZpOyBpZiBbWyAkYiA9PSAnMScgJiYgJGQgPT0gJzEnIF1dOyB0aGVuIF9ydW4rPScgYW5kICgnOyBlbGlmIFtbICRkID09ICcxJyAmJiAkYyA9PSAnMScgXV07IHRoZW4gX3J1bis9JygnOyBlbGlmIFtbICRiID09ICcxJyAmJiAkYyA9PSAnMScgXV07IHRoZW4gX3J1bis9JyBhbmQgKCc7IGZpOyBmb3IgYSBpbiAke19wb3J0c1tAXX07IGRvIGlmIFtbICRhICE9ICpbXjAtOV0qIF1dOyB0aGVuIF9ydW4rPSdwb3J0KCckYScpIG9yICc7IGZpOyBkb25lOyBpZiBbWyAkYiA9PSAnMScgJiYgJGQgPT0gJzEnIF1dOyB0aGVuIF9ydW49JHtfcnVuJT8/Pz99OyBfcnVuKz0nKSc7IGVsaWYgW1sgJGQgPT0gJzEnICYmICRjID09ICcxJyBdXTsgdGhlbiBfcnVuPSR7X3J1biU/Pz8/fTsgX3J1bis9JyknOyBlbGlmIFtbICRiID09ICcwJyAmJiAkZCA9PSAnMScgXV07IHRoZW4gX3J1bj0ke19ydW4lPz8/P307IGVsaWYgW1sgJGIgPT0gJzEnICYmICRkID09ICcwJyBdXTsgdGhlbiBfcnVuPSR7X3J1biU/Pz8/P307IGZpOyBpZiBbWyAkYiA9PSAnMScgfHwgJGQgPT0gJzEnIF1dOyB0aGVuIGlmIFtbICRjID09ICcxJyBdXTsgdGhlbiBfcnVuKz0nIGFuZCAoJzsgZmk7IGZpOyBmb3IgYSBpbiAke19wcm90W0BdfTsgZG8gY2FzZSAkYSBpbiB0Y3ApIF9ydW4rPSdpcF9wPTYgb3IgJzs7IHVkcCkgX3J1bis9J2lwX3A9MTEgb3IgJzs7IGljbXApIF9ydW4rPSdpcF9wPTEgb3IgJzsgZXNhYzsgZG9uZTsgaWYgW1sgJGIgPT0gJzEnIHx8ICRkID09ICcxJyBdXTsgdGhlbiBpZiBbWyAkYyA9PSAnMScgXV07IHRoZW4gX3J1bj0ke19ydW4lPz8/P307IF9ydW4rPScpJzsgZmk7IGVsaWYgW1sgJGIgPT0gJzEnICYmICRkID09ICcwJyAmJiAkYyA9PSAnMCcgXV07IHRoZW4gX3J1bj0ke19ydW4lPz8/Pz99OyBlbGlmIFtbICRiID09ICcwJyAmJiAkZCA9PSAnMScgJiYgJGMgPT0gJzAnIF1dOyB0aGVuIF9ydW49JHtfcnVuJT8/Pz8/fTsgZWxpZiBbWyAkYiA9PSAnMCcgJiYgJGQgPT0gJzAnICYmICRjID09ICcxJyBdXTsgdGhlbiBfcnVuPSR7X3J1biU/Pz8/fTsgZmk7IGlmIFtbICRiID09ICcxJyB8fCAkZCA9PSAnMScgfHwgJGMgPT0gJzEnIF1dOyB0aGVuIF9ydW4rPScsICc7IGZpOyBfcnVuKz0nYWNjZXB0OyInOyBlbHNlIF9ydW4rPScgLUYgIjAsMCwwLDAsMCInOyBmaTsgaWYgW1sgLW4gJF9maWxlIF1dOyB0aGVuIF9ydW4rPScgLW8gL3Zhci9sb2cvJyRfZmlsZTsgZmk7IGlmIFtbICRfc3hsID09ICcxJyBdXTsgdGhlbiBfcnVuKz0nOyBmd2FjY2VsIG9uJzsgZmk7IHRwdXQgYm9sZDsgZWNobyAtbiAkX3J1bjsgdHB1dCBzZ3IwOyByZWFkIC1zbjE7IGVjaG87IGNhc2UgJFJFUExZIGluICcnKSBldmFsICRfcnVuOzsgKikgZWNobyAnQWJvcnQhJzsgZXNhYzsgZWNobzsgdW5zZXQgX2hvc3RzIF9wb3J0cyBfcHJvdCBfZmlsZSBfc3hsIF9ydW4gYSBiIGMgZDsgZmkK`"
+	echo
+	echo "  -- Firewall Logs ------------------------------------------------------------------------------"
+	echo -n " "; [ $n ==  2 ] && echo -n "${S}"; echo "${CYAN} tail -n 20 \$FWDIR/log/fwd.elg ${NORM} Show last 20 entries in FWD log"; [ $n == 2 ] && CMD="tail -n 20 $FWDIR/log/fwd.elg | more"
+	echo
+	echo "  -- ClusterXL ----------------------------------------------------------------------------------"
+	echo -n " "; [ $n ==  3 ] && echo -n "${S}"; echo "${CYAN} cphaprob stat; cpstat -f all ha; fw hastat ${NORM} Show ClusterXL mode & HA status"; [ $n == 3 ] && CMD="cphaprob stat; cpstat -f all ha; fw hastat"
+	echo -n " "; [ $n ==  4 ] && echo -n "${S}"; echo "${CYAN} cphaprob -l list ${NORM} Show ClusterXL devices & status"; [ $n == 4 ] && CMD="cphaprob -l list"
+	echo -n " "; [ $n ==  5 ] && echo -n "${S}"; echo "${CYAN} cphaprob -a if ${NORM} Show ClusterXL interfaces"; [ $n == 5 ] && CMD="cphaprob -a if"
+	echo -n " "; [ $n ==  6 ] && echo -n "${S}"; echo "${CYAN} fw ctl pstat ${NORM} Show ClusterXL sync status"; [ $n == 6 ] && CMD="fw ctl pstat"
+	echo -n " "; [ $n ==  7 ] && echo -n "${S}"; echo "${CYAN} cphaconf cluster_id get ${NORM} Show Cluster ID"; [ $n == 7 ] && CMD="cphaconf cluster_id get"
+	echo -n " "; [ $n ==  8 ] && echo -n "${S}"; echo "${CYAN} clish -c \"show routed cluster-state detailed\" ${NORM} Show ClusterXL failover history"; [ $n == 8 ] && CMD="clish -c \"show routed cluster-state detailed\""
+	echo -n " "; [ $n ==  9 ] && echo -n "${S}"; echo "${WARN} clusterXL_admin down ${NORM} Create ClusterXL faildevice"; [ $n == 9 ] && CMD="clusterXL_admin down"
+	echo -n " "; [ $n == 10 ] && echo -n "${S}"; echo "${ENAB} clusterXL_admin up ${NORM} Delete ClusterXL faildevice"; [ $n == 10 ] && CMD="clusterXL_admin up"
+	echo
+	echo "  -- Address Spoofing ---------------------------------------------------------------------------"
+	echo -n " "; [ $n == 11 ] && echo -n "${S}"; echo "${CYAN} grep ipaddr \$FWDIR/state/local/FW1/local.set ${NORM} Show Calculated Interface Topology"; [ $n == 11 ] && CMD="`base64 -id <<< ZWNobzsgdHB1dCBib2xkOyBpZiBbWyBgJENQRElSL2Jpbi9jcHByb2RfdXRpbCBGd0lzRmlyZXdhbGxNb2R1bGUgMj4vZGV2L251bGxgICE9IConMScqIF1dOyB0aGVuIGVjaG8gJyBOb3QgYSBmaXJld2FsbCBnYXRld2F5ISc7IHRwdXQgc2dyMDsgZWNobzsgZWxpZiBbWyBgZ3JlcCAkKGdyZXAgJChob3N0bmFtZSkgL2V0Yy9ob3N0cyB8IGN1dCAtZjEgLWQnICcpICRGV0RJUi9zdGF0ZS9sb2NhbC9GVzEvbG9jYWwuc2V0IHwgd2MgLWxgID09ICIwIiBdXTsgdGhlbiBlY2hvICcgTWFpbiBJUCBvZiAnJChob3N0bmFtZSknIGRvZXNuYHQgbWF0Y2ggaXRgcyBtYW5hZ2VtZW50IGludGVyZmFjZSBJUCEnOyB0cHV0IHNncjA7IGVjaG87IGVsc2UgZWNobyAtbiAnIEludGVyZmFjZSBUb3BvbG9neSAnOyB0cHV0IHNncjA7IGVjaG8gLW4gJz4gJzsgdHB1dCBib2xkOyB0cHV0IHNldGFmIDE7IGlmIFtbIC1uICIkdnNuYW1lIiBdXSAmJiBbWyAkdnNuYW1lICE9ICondW5hdmFpbCcqIF1dOyB0aGVuIGVjaG8gJHZzbmFtZScgKElEOiAnJElOU1RBTkNFX1ZTSUQnKSc7IGVsc2UgaG9zdG5hbWU7IGZpOyB0cHV0IHNncjA7IGVjaG8gLW4gJyAnOyBwcmludGYgJyUucy0nIHsxLi44MH07IGVjaG87IGVncmVwIC1CMSAkJ2lmaW5kZXh8OmlwYWRkcnxcKFx4MjI8WzAtOV18b2JqdHlwZXxoYXNfYWRkcl9pbmZvfDptb25pdG9yX29ubHl8OmV4dGVybmFsJyAkRldESVIvc3RhdGUvbG9jYWwvRlcxL2xvY2FsLnNldCB8IHNlZCAtbiAiLyQoaWYgW1sgLW4gIiR2c25hbWUiIF1dICYmIFtbICR2c25hbWUgIT0gKid1bmF2YWlsJyogXV0gJiYgW1sgJElOU1RBTkNFX1ZTSUQgIT0gJzAnIF1dOyB0aGVuIGVjaG8gJHZzbmFtZTsgZWxzZSBncmVwIGBob3N0bmFtZWAgL2V0Yy9ob3N0cyB8IGN1dCAtZjEgLWQnICc7IGZpKSokLyxcJCBwIiB8IHRhaWwgLW4gKzMgfCBzZWQgJ3MvW1x4MjJcdCgpPD5dLy9nJyB8IHNlZCAncy8tLS8vZycgfCBzZWQgJyQhTjtzL1xuOmlwYWRkcjYvIElQdjYvO1A7RCcgfCBzZWQgJy9JUHY2LyFzLzovL2cnIHwgc2VkICdzL2ludGVyZmFjZV90b3BvbG9neS9cdENhbGN1bGF0ZWQgSW50ZXJmYWNlIFRvcG9sb2d5L2cnIHwgc2VkICcwLC9pZmluZGV4IDAvey9pZmluZGV4IDAvZDt9JyB8IHNlZCAnL2lmaW5kZXggMC9xJyB8IHNlZCAnL3Nwb29mXHxzY2FuL2QnIHwgc2VkICdzL2hhc19hZGRyX2luZm8gdHJ1ZS9cdEFkZHJlc3MgU3Bvb2ZpbmcgUHJvdGVjdGlvbjogRW5hYmxlZC9nJyB8IHNlZCAncy9oYXNfYWRkcl9pbmZvIGZhbHNlL1x0QWRkcmVzcyBTcG9vZmluZyBQcm90ZWN0aW9uOiBEaXNhYmxlZC9nJyB8IHNlZCAtZSAnL1Byb3Qve247ZH0nIHwgc2VkICckIU47cy9cbm1vbml0b3Jfb25seSB0cnVlLyAoRGV0ZWN0IE1vZGUpLztQO0QnIHwgc2VkICckIU47cy9cbm1vbml0b3Jfb25seSBmYWxzZS8gKFByZXZlbnQgTW9kZSkvO1A7RCcgfCBzZWQgJyQhTjtzL1xuZXh0ZXJuYWwgZmFsc2UvIC0gSW50ZXJuYWwgSW50ZXJmYWNlLztQO0QnIHwgc2VkICckIU47cy9cbmV4dGVybmFsIHRydWUvIC0gRXh0ZXJuYWwgSW50ZXJmYWNlLztQO0QnIHwgc2VkICcvb2JqdHlwZS9xJyB8IHRhYyB8IHNlZCAnL2lmaW5kZXggMC9JLCsyIGQnIHwgc2VkICcvQWRkcmVzcy8sJCFkJyB8IHRhYyB8IHNlZCAnL2lmaW5kZXgvZCcgfCBzZWQgJ3MvLC8gLS9nJyB8IHNlZCAnJCFOO3MvXG5pcGFkZHIvID4vO1A7RCcgfCBzZWQgJy8gLSAvcy9eIC9cdC8nIHwgZWdyZXAgLUMgOTk5OSAtLWNvbG9yPWF1dG8gJCc+fElQdjZ8RXh0ZXJuYWx8RGlzYWJsZWR8RGV0ZWN0JzsgZWNobzsgZmkK`"
+	echo -n " "; [ $n == 12 ] && echo -n "${S}"; echo "${CYAN} fw ctl zdebug drop | grep spoofing ${NORM} Show dropped connections with reason: Address Spoofing"; [ $n == 12 ] && CMD="fw ctl zdebug drop | grep spoofing"
+	echo
+	echo "  -- Threat Prevention --------------------------------------------------------------------------"
+	echo -n " "; [ $n == 13 ] && echo -n "${S}"; echo "${CYAN} cat \$FWDIR/conf/malware_config ${NORM} Show malware policy"; [ $n == 13 ] && CMD="cat $FWDIR/conf/malware_config | more"
+	echo -n " "; [ $n == 14 ] && echo -n "${S}"; echo "${WARN} vi \$FWDIR/conf/malware_config ${NORM} Edit malware policy"; [ $n == 14 ] && CMD="vi $FWDIR/conf/malware_config"
+	echo
+	echo "  -- SSL Troubleshooting ------------------------------------------------------------------------"
+	echo -n " "; [ $n == 15 ] && echo -n "${S}"; echo "${CYAN} fw ctl get int enhanced_ssl_inspection ${NORM} Show enhanced SSL inspection status"; [ $n == 15 ] && CMD="fw ctl get int enhanced_ssl_inspection"
+	echo -n " "; [ $n == 16 ] && echo -n "${S}"; echo "${CYAN} fw ctl get int bypass_on_enhanced_ssl_inspection ${NORM} Check if enhanced SSL inspection bypass is on"; [ $n == 16 ] && CMD="fw ctl get int bypass_on_enhanced_ssl_inspection"
+	echo -n " "; [ $n == 17 ] && echo -n "${S}"; echo "${CYAN} cat \$CPDIR/registry/HKLM_registry.data | grep -i ecdhe ${NORM} Show ECDHE ciphers in registry"; [ $n == 17 ] && CMD="cat $CPDIR/registry/HKLM_registry.data | grep -i ecdhe"
+	echo "  -- System Activity Report (sk112734) ----------------------------------------------------------"
+	echo -n " "; [ $n == 18 ] && echo -n "${S}"; echo "${CYAN} sar ${NORM} Show System Activity Report"; [ $n == 18 ] && CMD="sar | more"
+	echo -n " "; [ $n == 19 ] && echo -n "${S}"; echo "${CYAN} sar -u ${NORM} Show CPU utilization"; [ $n == 19 ] && CMD="sar -u | more"
+	echo -n " "; [ $n == 20 ] && echo -n "${S}"; echo "${CYAN} sar -q ${NORM} Show load average statistics"; [ $n == 20 ] && CMD="sar -q | more"
+	echo -n " "; [ $n == 21 ] && echo -n "${S}"; echo "${CYAN} sar -r ${NORM} Show memory statistics"; [ $n == 21 ] && CMD="sar -r | more"
+	echo -n " "; [ $n == 22 ] && echo -n "${S}"; echo "${CYAN} sar -W ${NORM} Show swapping statistics"; [ $n == 22 ] && CMD="sar -W | more"
+	echo -n " "; [ $n == 23 ] && echo -n "${S}"; echo "${CYAN} sar -n EDEV ${NORM} Show EDEV network statistics"; [ $n == 23 ] && CMD="sar -n EDEV | more"
+	echo -n " "; [ $n == 24 ] && echo -n "${S}"; echo "${CYAN} sar -n ALL ${NORM} Show ALL network statistics"; [ $n == 24 ] && CMD="sar -n ALL | more"
+	echo -n " "; [ $n == 25 ] && echo -n "${S}"; echo "${CYAN} iostat -p ALL ${NORM} Show CPU statistics and input/output statistics for devices"; [ $n == 25 ] && CMD="iostat -p ALL | more"
+	echo -n " "; [ $n == 26 ] && echo -n "${S}"; echo "${CYAN} mpstat -P ALL ${NORM} Show processors related statistics"; [ $n == 26 ] && CMD="mpstat -P ALL | more"
+	echo
+	echo "  -- Check Point Appliance ----------------------------------------------------------------------"
+	echo -n " "; [ $n == 27 ] && echo -n "${S}"; echo "${CYAN} show sysenv all ${NORM} Show system environment (PSU, Fans, Temperature, etc.)"; [ $n == 27 ] && CMD="clish -c \"show sysenv all\" | more"
+	echo -n " "; [ $n == 28 ] && echo -n "${S}"; echo "${CYAN} service ipmi start; ipmitool bmc info; service ipmi stop ${NORM} Show LOM firmware version"; [ $n == 28 ] && CMD="service ipmi start; ipmitool bmc info | egrep -C 9999 --color=auto $'Firmware Revision :'; service ipmi stop"	
+	 ;;
+    5)	echo "  MAIN < ${ENAB}GATEWAY PERFORMANCE OPTIMIZATION${NORM}"
+	echo
+	echo -n " "; [ $o ==  1 ] && echo -n "${S}"; echo "${CYAN} fw ctl multik stat ${NORM} Show multi-kernel & peak connections"; [ $o == 1 ] && CMD="fw ctl multik stat"
+	echo -n " "; [ $o ==  2 ] && echo -n "${S}"; echo "${CYAN} fw ctl affinity -l -r ${NORM} Show interface affinity & IRQs"; [ $o == 2 ] && CMD="fw ctl affinity -l -r"
+	echo -n " "; [ $o ==  3 ] && echo -n "${S}"; echo "${CYAN} fw ctl affinity -l -a ${NORM} Show interface affinity"; [ $o == 3 ] && CMD="fw ctl affinity -l -a"
+	echo -n " "; [ $o ==  4 ] && echo -n "${S}"; echo "${CYAN} netstat -s ${NORM} Show network statistics"; [ $o == 4 ] && CMD="netstat -s | more"
+	echo -n " "; [ $o ==  5 ] && echo -n "${S}"; echo "${CYAN} netstat -ni ${NORM} Check for drop on interfaces"; [ $o == 5 ] && CMD="netstat -ni | more"
+	echo -n " "; [ $o ==  6 ] && echo -n "${S}"; echo "${CYAN} cpstat os -f multi_cpu ${NORM} Show CPU load on all cores"; [ $o == 6 ] && CMD="cpstat os -f multi_cpu | more"
+	echo -n " "; [ $o ==  7 ] && echo -n "${S}"; echo "${CYAN} sim if ${NORM} Show list of interfaces used and seen by SecureXL"; [ $o == 7 ] && CMD="sim if | more"
+	echo -n " "; [ $o ==  8 ] && echo -n "${S}"; echo "${CYAN} sim affinity -l ${NORM} Show current affinity of network interfaces to CPU cores"; [ $o == 8 ] && CMD="sim affinity -l | more"
+	echo -n " "; [ $o ==  9 ] && echo -n "${S}"; echo "${CYAN} cpmq get -a ${NORM} Show Multi-Queue configuration for Intel Igb/Ixgbe interfaces"; [ $o == 9 ] && CMD="fwaccel stat | head -n 1; cpmq get -a | more"
+	echo -n " "; [ $o == 10 ] && echo -n "${S}"; echo "${CYAN} watch --i 1 --d 'cpstat -f fragments fw' ${NORM} Watch every 1.0s if GW handles any fragmentation"; [ $o == 10 ] && CMD="watch --i 1 --d 'cpstat -f fragments fw'"
+	echo -n " "; [ $o == 11 ] && echo -n "${S}"; echo "${CYAN} ps axwf -o pid,cpuid,pcpu,pmem,time,comm ${NORM} Show processes & daemons utilization by cpu-core, mem"; [ $o == 11 ] && CMD="ps axwf -o pid,cpuid,pcpu,pmem,time,comm"
+	case `echo ${OS#*R*}` in 77.30)
+		echo -n " "; [ $o == 12 ] && echo -n "${S}"; echo "${CYAN} fw ctl multik get_mode ${NORM} Show CoreXL Dynamic Dispatcher and Firewall Priority Queues status"; [ $o == 12 ] && CMD="fw ctl multik get_mode"
+		echo -n " "; [ $o == 13 ] && echo -n "${S}"; echo "${ENAB} fw ctl multik set_mode 0 ${NORM} Disable CoreXL Dynamic Dispatcher and Firewall Priority Queues (Default)"; [ $o == 13 ] && CMD="fw ctl multik set_mode 0"
+		echo -n " "; [ $o == 14 ] && echo -n "${S}"; echo "${WARN} fw ctl multik set_mode 1 ${NORM} Monitor Heavy Connections in CPView"; [ $o == 14 ] && CMD="fw ctl multik set_mode 1"
+		echo -n " "; [ $o == 15 ] && echo -n "${S}"; echo "${WARN} fw ctl multik set_mode 9 ${NORM} Enable CoreXL Dynamic Dispatcher and Firewall Priority Queues"; [ $o == 15 ] && CMD="fw ctl multik set_mode 9" ;;
+	*)
+		echo -n " "; [ $o == 12 ] && echo -n "${S}"; echo "${CYAN} fw ctl multik dynamic_dispatching get_mode ${NORM} Show CoreXL Dynamic Dispatcher status"; [ $o == 12 ] && CMD="fw ctl multik dynamic_dispatching get_mode"
+		echo -n " "; [ $o == 13 ] && echo -n "${S}"; echo "${ENAB} fw ctl multik dynamic_dispatching on ${NORM} Enable CoreXL Dynamic Dispatcher (Default)"; [ $o == 13 ] && CMD="fw ctl multik dynamic_dispatching on"
+		echo -n " "; [ $o == 14 ] && echo -n "${S}"; echo "${WARN} fw ctl multik dynamic_dispatching off ${NORM} Disable CoreXL Dynamic Dispatcher"; [ $o == 14 ] && CMD="fw ctl multik dynamic_dispatching off"
+		echo -n " "; [ $o == 15 ] && echo -n "${S}"; echo "${WARN} fw ctl multik prioq ${NORM} Manage Firewall Priority Queues"; [ $o == 15 ] && CMD="fw ctl multik prioq"
+	esac
+	echo
+	echo "  Performance Assessment \"${BOLD}Super Seven${NORM}\" ( https://community.checkpoint.com/message/28633 )"
+	echo -n " "; [ $o == 16 ] && echo -n "${S}"; echo "${CYAN}  #1 fwaccel stat ${NORM} Check that SexureXL & Accept Templates are enabled"; [ $o == 16 ] && CMD="fwaccel stat"
+	echo -n " "; [ $o == 17 ] && echo -n "${S}"; echo "${CYAN}  #2 fwaccel stats -s ${NORM} Check that F2F pkts are below 30%, PXL around 50% is normal"; [ $o == 17 ] && CMD="fwaccel stats -s"
+	echo -n " "; [ $o == 18 ] && echo -n "${S}"; echo "${CYAN}  #3 cpuinfo ${NORM} Check # of cores and HyperThreading status"; [ $o == 18 ] && CMD="grep -c  ^processor  /proc/cpuinfo && /sbin/cpuinfo"
+	echo -n " "; [ $o == 19 ] && echo -n "${S}"; echo "${CYAN}  #4 fw ctl affinity -l -r ${NORM} Check for allocations of SND/IRQ and FW worker cores"; [ $o == 19 ] && CMD="fw ctl affinity -l -r | more"
+	echo -n " "; [ $o == 20 ] && echo -n "${S}"; echo "${CYAN}  #5 netstat -ni ${NORM} Check for RX/TX errors (RX-DRP should be <0.1%)"; [ $o == 20 ] && CMD="netstat -ni | more"
+	echo -n " "; [ $o == 21 ] && echo -n "${S}"; echo "${CYAN}     sar -n EDEV ${NORM} Check for RX/TX errors within last 30 days"; [ $o == 21 ] && CMD="sar -n EDEV | more"
+	echo -n " "; [ $o == 22 ] && echo -n "${S}"; echo "${CYAN}  #6 fw ctl multik stat ${NORM} Check for imbalances of connections on FW worker cores"; [ $o == 22 ] && CMD="fw ctl multik stat"
+	echo -n " "; [ $o == 23 ] && echo -n "${S}"; echo "${CYAN}  #7 cpstat os -f multi_cpu ${NORM} Check for high SND/IRQ and FW worker core utilization"; [ $o == 23 ] && CMD="cpstat os -f multi_cpu"
+	 ;;
+    6)	echo "  MAIN < ${ENAB}VPN TROUBLESHOOTING${NORM}"
+	echo
+	echo -n " "; [ $p ==  1 ] && echo -n "${S}"; echo "${CYAN} fw tab -f -t vpn_routing ${NORM} Show VPN routing"; [ $p == 1 ] && CMD="`base64 -id <<< aWYgW1sgYCRDUERJUi9iaW4vY3Bwcm9kX3V0aWwgRndJc0ZpcmV3YWxsTW9kdWxlIDI+L2Rldi9udWxsYCAhPSAqJzEnKiBdXTsgdGhlbiBlY2hvOyB0cHV0IGJvbGQ7IHRwdXQgc2V0YWIgMTsgZWNobyAnIE5vdCBhIGZpcmV3YWxsIGdhdGV3YXkhICc7IHRwdXQgc2dyMDsgZWNobzsgZWxzZSBpZiBbWyBgZ3JlcCBSODAuNDAgL2V0Yy9jcC1yZWxlYXNlIHwgd2MgLWxgICE9IDAgXV07IHRoZW4gZWNobzsgdHB1dCBib2xkOyB0cHV0IHNldGFiIDE7IGVjaG8gLW4gJyBJbmZvOiBWUE4gRG9tYWluIGZvciBHYXRld2F5IENvbW11bml0aWVzIGFyZSBjdXJyZW50bHkgbm90IGRpc3BsYXllZCBjb3JyZWN0bHkgYnkgdGhpcyB0b29sISAnOyB0cHV0IHNncjA7IGVjaG87IGZpOyBmdyB0YWIgLXQgdnBuX3JvdXRpbmcgLXUgfCBhd2sgJ05SPjMgeyQwPXN1YnN0cigkMCwyLDI4KTsgZ3N1YigiLCAiLCAiIik7IGdzdWIoIjsgIiwgIiIpOyBnc3ViKCIuLiIsICIweCYgIik7IHByaW50fScgfCB4YXJncyBwcmludGYgIiVkLiVkLiVkLiVkICVkLiVkLiVkLiVkICVkLiVkLiVkLiVkXG4iIHwgYXdrICd7cHJpbnQgJDMiLiIkMSIgLSAiJDJ9JyB8IHNvcnQgLXQgLiAtayAgMSwxbiAtayAyLDJuIC1rIDMsM24gLWsgNCw0biAtayA1LDVuIC1rIDYsNm4gLWsgNyw3biAtayA4LDhuIHwgc2VkICdzL14veC8nIHwgc2VkICdzL1wuL1xuXHQvNCcgfCBhd2sgJyF4WyQwXSsrJyB8IHNlZCAnL3gvcy8kL1xuXHRFbmNyeXB0aW9uIGRvbWFpbi8nIHwgc2VkICdzL3gvXG5WUE4gR2F0ZXdheSA+IC8nIHwgaWYgW1sgJChjYXQgL2V0Yy9jcC1yZWxlYXNlKSAhPSAqIkVtYmVkZGVkIiogXV07IHRoZW4gZWdyZXAgLUMgOTk5OSAtLWNvbG9yPWF1dG8gJCdWUE4gR2F0ZXdheXxFbmNyeXB0aW9uIGRvbWFpbic7IGVsc2UgY2F0ICQxIHwgc2VkICdzL15cdC8vJzsgZmk7IGVjaG87IGZpOyBpZiBbWyBgZ3JlcCBSODAuNDAgL2V0Yy9jcC1yZWxlYXNlIHwgd2MgLWxgICE9IDAgXV07IHRoZW4gdHB1dCBib2xkOyB0cHV0IHNldGFiIDE7IGVjaG8gLW4gJyBJbmZvOiBWUE4gRG9tYWluIGZvciBHYXRld2F5IENvbW11bml0aWVzIGFyZSBjdXJyZW50bHkgbm90IGRpc3BsYXllZCBjb3JyZWN0bHkgYnkgdGhpcyB0b29sISAnOyB0cHV0IHNncjA7IGVjaG87IGVjaG87IGZp`"
+	echo
+	echo "  IPv4 syntax"
+	echo -n " "; [ $p ==  2 ] && echo -n "${S}"; echo "${CYAN} vpn tu ${NORM} Open VPN tunnel utility"; [ $p == 2 ] && CMD="vpn tu"
+	echo -n " "; [ $p ==  3 ] && echo -n "${S}"; echo "${CYAN} vpn tu mstats ${NORM} Show distribution of VPN traffic between CoreXL FW instances"; [ $p == 3 ] && CMD="vpn tu mstats | more"
+	echo -n " "; [ $p ==  4 ] && echo -n "${S}"; echo "${CYAN} vpn tu tlist ${NORM} Show VPN tunnels info"; [ $p == 4 ] && CMD="vpn tu tlist | more"
+	echo -n " "; [ $p ==  5 ] && echo -n "${S}"; echo "${CYAN} vpn cu ${NORM} Open cipher utility"; [ $p == 5 ] && CMD="vpn cu"
+	echo -n " "; [ $p ==  6 ] && echo -n "${S}"; echo "${CYAN} vpn drv stat ${NORM} Show status of VPN kernel module"; [ $p == 6 ] && CMD="vpn drv stat"
+	echo -n " "; [ $p ==  7 ] && echo -n "${S}"; echo "${CYAN} vpn dump_psk ${NORM} Show hash (SHA256) of peers' pre-shared keys"; [ $p == 7 ] && CMD="vpn dump_psk | more"
+	echo -n " "; [ $p ==  8 ] && echo -n "${S}"; echo "${CYAN} vpn overlap_encdom ${NORM} Show overlapping VPN encryption domains"; [ $p == 8 ] && CMD="vpn overlap_encdom"
+	echo -n " "; [ $p ==  9 ] && echo -n "${S}"; echo "${CYAN} vpn ipafile_check $FWDIR/conf/ipassignment.conf ${NORM} Check integrity of ipassignment.conf"; [ $p == 9 ] && CMD="vpn ipafile_check $FWDIR/conf/ipassignment.conf"
+	echo -n " "; [ $p == 10 ] && echo -n "${S}"; echo "${WARN} vpn debug trunc; vpn debug on; vpn debug ikeon ${NORM} Start VPN debug mode"; [ $p == 10 ] && CMD="vpn debug trunc; vpn debug on; vpn debug ikeon"
+	echo -n " "; [ $p == 11 ] && echo -n "${S}"; echo "${ENAB} vpn debug ikeoff; vpn debug off; file $FWDIR/log/ike.elg ${NORM} Stop VPN debug mode"; [ $p == 11 ] && CMD="vpn debug ikeoff; vpn debug off; file $FWDIR/log/ike.elg"
+	echo
+	echo "  IPv6 syntax"
+	echo -n " "; [ $p == 12 ] && echo -n "${S}"; echo "${CYAN} vpn6 tu ${NORM} Open VPN tunnel utility"; [ $p == 12 ] && CMD="vpn6 tu"
+	echo -n " "; [ $p == 13 ] && echo -n "${S}"; echo "${CYAN} vpn6 tu mstats ${NORM} Show distribution of VPN traffic between CoreXL FW instances"; [ $p == 13 ] && CMD="vpn6 tu mstats"
+	echo -n " "; [ $p == 14 ] && echo -n "${S}"; echo "${CYAN} vpn6 tu tlist ${NORM} Show VPN tunnels info"; [ $p == 14 ] && CMD="vpn6 tu tlist"
+	echo
+	echo "  Remote Access"
+	echo -n " "; [ $p == 15 ] && echo -n "${S}"; echo "${CYAN} cpstat -f all polsrv ${NORM} Show status of desktop policy server"; [ $p == 15 ] && CMD="cpstat -f all polsrv"
+	echo -n " "; [ $p == 16 ] && echo -n "${S}"; echo "${CYAN} fw tab -t om_assigned_ips -f -u ${NORM} Show OfficeMode IPs of connected Remote Access users"; [ $p == 16 ] && CMD="fw tab -t om_assigned_ips -f -u | grep UserName | awk '{print \$15 \$17}' | tr ';' ' '"
+	echo -n " "; [ $p == 17 ] && echo -n "${S}"; echo "${CYAN} vpn show_tcpt ${NORM} Show Visitor Mode users"; [ $p == 17 ] && CMD="vpn show_tcpt | more"
+	echo -n " "; [ $p == 18 ] && echo -n "${S}"; echo "${CYAN} fw tab -t userc_users -s ${NORM} Show number of connected remote access users under the #VALS column"; [ $p == 18 ] && CMD="fw tab -t userc_users -s | more"
+	
+	 ;;
+    7)	echo "  MAIN < ${ENAB}VSX TROUBLESHOOTING${NORM}"
+	echo
+	echo -n " "; [ $r ==  1 ] && echo -n "${S}"; echo "${CYAN} vsx stat -v; cpstat vsx; cpstat vsx -f stat ${NORM} Show detailed VSX status"; [ $r == 1 ] && CMD="vsx stat -v; cpstat vsx; cpstat vsx -f stat"
+	echo -n " "; [ $r ==  2 ] && echo -n "${S}"; echo "${CYAN} vsx stat -vs \$INSTANCE_VSID ${NORM} Show Virtual Device status"; [ $r == 2 ] && CMD="vsx stat -vs $INSTANCE_VSID"
+	echo -n " "; [ $r ==  3 ] && echo -n "${S}"; echo "${CYAN} vsx stat -l ${NORM} Show status of all Virtual Devices"; [ $r == 3 ] && CMD="vsx stat -l | more"
+	echo -n " "; [ $r ==  4 ] && echo -n "${S}"; echo "${CYAN} cphaprob stat ${NORM} Show VSX cluster status"; [ $r == 4 ] && CMD="cphaprob stat"
+	echo -n " "; [ $r ==  5 ] && echo -n "${S}"; echo "${CYAN} cphaprob -vs \$INSTANCE_VSID stat ${NORM} Show cluster status for specific VS" ; [ $r == 5 ] && CMD="cphaprob -vs $INSTANCE_VSID stat"
+	echo -n " "; [ $r ==  6 ] && echo -n "${S}"; echo "${CYAN} fw ctl zdebug -T drop | egrep '^;[^;]+;\[\$INSTANCE_VSID\]' ${NORM} Show dropped connections + reason (with Timestamp) for specific VS"; [ $r == 6 ] && CMD="fw ctl zdebug -T drop | egrep '^;[^;]+;\[$INSTANCE_VSID\]'"
+	echo -n " "; [ $r ==  7 ] && echo -n "${S}"; echo "${CYAN} vsx mstat ${NORM} Show VSX memory status"; [ $r == 7 ] && CMD="vsx mstat"
+	echo -n " "; [ $r ==  8 ] && echo -n "${S}"; echo "${CYAN} vsx mstat status ${NORM} Show if memory resource monitoring is enabled or disabled"; [ $r == 8 ] && CMD="vsx mstat status"
+	echo -n " "; [ $r ==  9 ] && echo -n "${S}"; echo "${ENAB} vsx mstat enable; vsx mstat status ${NORM} Enable memory resource monitoring"; [ $r == 9 ] && CMD="vsx mstat enable; vsx mstat status"
+	echo -n " "; [ $r == 10 ] && echo -n "${S}"; echo "${WARN} vsx mstat disable; vsx mstat status ${NORM} Disable memory resource monitoring"; [ $r == 10 ] && CMD="vsx mstat disable; vsx mstat status"
+	echo -n " "; [ $r == 11 ] && echo -n "${S}"; echo "${CYAN} vsx resctrl stat ${NORM} Show CPU consumption per Virtual Device"; [ $r == 11 ] && CMD="vsx resctrl stat"
+	echo -n " "; [ $r == 12 ] && echo -n "${S}"; echo "${CYAN} vsx resctrl monitor show ${NORM} Show Resource Control Monitor status"; [ $r == 12 ] && CMD="vsx resctrl monitor show"
+	echo -n " "; [ $r == 13 ] && echo -n "${S}"; echo "${ENAB} vsx resctrl monitor enable ${NORM} Enable Resource Control Monitoring"; [ $r == 13 ] && CMD="vsx resctrl monitor enable"
+	echo -n " "; [ $r == 14 ] && echo -n "${S}"; echo "${WARN} vsx resctrl monitor disable ${NORM} Disable Resource Control Monitoring"; [ $r == 14 ] && CMD="vsx resctrl monitor disable"
+	echo -n " "; [ $r == 15 ] && echo -n "${S}"; echo "${WARN} vsx resctrl stop ${NORM} Stop Resource Control Monitor"; [ $r == 15 ] && CMD="vsx resctrl stop"
+	echo -n " "; [ $r == 16 ] && echo -n "${S}"; echo "${WARN} vsx resctrl reset ${NORM} Reset Monitoring statistics"; [ $r == 16 ] && CMD="vsx resctrl reset"
+	 ;;
+    8)	echo "  MAIN < ${ENAB}MDS TROUBLESHOOTING${NORM}"
+	echo
+	echo -n " "; [ $s ==  1 ] && echo -n "${S}"; echo "${CYAN} mdsstat ${NORM} Show MDS status"; [ $s == 1 ] && CMD="mdsstat"
+	echo -n " "; [ $s ==  2 ] && echo -n "${S}"; echo "${CYAN} mdsconfig ${NORM} Open MDS configuration utility"; [ $s == 2 ] && CMD="mdsconfig"
+	echo -n " "; [ $s ==  3 ] && echo -n "${S}"; echo "${CYAN} mdsquerydb MDSs ${NORM} Show names and IPs of all MDSs"; [ $s == 3 ] && CMD="mdsquerydb MDSs"
+	echo -n " "; [ $s ==  4 ] && echo -n "${S}"; echo "${CYAN} mdsquerydb Domains ${NORM} Show names of all Domains"; [ $s == 4 ] && CMD="mdsquerydb Domains | more"
+	echo -n " "; [ $s ==  5 ] && echo -n "${S}"; echo "${CYAN} mdsquerydb GuiClients ${NORM} Show names and IPs of all GUI clients"; [ $s == 5 ] && CMD="mdsquerydb GuiClients | more"
+	echo -n " "; [ $s ==  6 ] && echo -n "${S}"; echo "${CYAN} mdsquerydb DomainManagementServers ${NORM} Show names of all DMSs"; [ $s == 6 ] && CMD="mdsquerydb DomainManagementServers | more"
+	echo -n " "; [ $s ==  7 ] && echo -n "${S}"; echo "${CYAN} mdsenv ${NORM} Set shell for Multi-Domain Server level commands (mdsstart, mdsstop, ..)"; [ $s == 7 ] && CMD="mdsenv"
+	# echo -n " "; [ $s ==  ? ] && echo -n "${S}"; echo "${CYAN} mdsenv <DMS_ID or DMS_IP or DMS_Name> ${NORM} Set shell for specific DMS environment"
+	echo -n " "; [ $s ==  8 ] && echo -n "${S}"; echo "${CYAN} mcd ${NORM} Directory change to $FWDIR"; [ $s == 8 ] && CMD="mcd"
+	echo -n " "; [ $s ==  9 ] && echo -n "${S}"; echo "${CYAN} send_command -local ${NORM} Enter send_command Clish (sk101877)"; [ $s == 9 ] && CMD="send_command -local"
+	echo -n " "; [ $s == 10 ] && echo -n "${S}"; echo "${CYAN} cpprod_util FwIsPrimary ${NORM} Check if MDS is Primary (1: Yes, 0: No)"; [ $s == 10 ] && CMD="cpprod_util FwIsPrimary"
+	echo -n " "; [ $s == 11 ] && echo -n "${S}"; echo "${CYAN} cplic print -D ${NORM} Show DMS/CMA level licenses"; [ $s == 11 ] && CMD="cplic print -D"
+	echo -n " "; [ $s == 12 ] && echo -n "${S}"; echo "${WARN} mdsstop ${NORM} Stop entire Multi-Domain Server (MDS + all DMS)"; [ $s == 12 ] && CMD="mdsstop"
+	echo -n " "; [ $s == 13 ] && echo -n "${S}"; echo "${WARN} mdsstop -m ${NORM} Stop Multi-Domain Server at MDS level only (without DMS)"; [ $s == 13 ] && CMD="mdsstop -m"
+	echo -n " "; [ $s == 14 ] && echo -n "${S}"; echo "${ENAB} mdsstart ${NORM} Start entire Multi-Domain Server (MDS + all DMS)"; [ $s == 14 ] && CMD="mdsstart"
+	echo -n " "; [ $s == 15 ] && echo -n "${S}"; echo "${ENAB} mdsstart -s ${NORM} Sequentially start all DMS and finally the Multi-Domain Server (All DMS + MDS)"; [ $s == 15 ] && CMD="mdsstart -s"
+	echo -n " "; [ $s == 16 ] && echo -n "${S}"; echo "${ENAB} mdsstart -m ${NORM} Start Multi-Domain Server at MDS level only (without DMS)"; [ $s == 16 ] && CMD="mdsstart -m"
+	# echo -n " "; [ $s ==  ? ] && echo -n "${S}"; echo "${WARN} mdsstop_customer <DMS_ID or DMS_IP or DMS_Name> ${NORM} Stop specific DMS"
+	# echo -n " "; [ $s ==  ? ] && echo -n "${S}"; echo "${CYAN} mdsstart_customer <DMS_ID or DMS_IP or DMS_Name> ${NORM} Start specific DMS"
+	 ;;
+    9)	echo "  MAIN < ${ENAB}QOS TROUBLESHOOTING${NORM}"
+	echo
+	echo -n " "; [ $t ==  1 ] && echo -n "${S}"; echo "${CYAN} fgate stat; fgate log stat ${NORM} Show QoS status"; [ $t == 1 ] && CMD="fgate stat; fgate log stat"
+	case `grep fgd50 /etc/cpshell/log_rotation.conf | wc -l` in 0)
+		echo -n " "; [ $t == 2 ] && echo -n "${S}"; echo "${CYAN} tail \$FGDIR/log/fgd.elg ${NORM} Show last 10 entries in QoS log"; [ $t == 2 ] && CMD="tail $FGDIR/log/fgd.elg" ;;
+	*)
+		echo -n " "; [ $t == 2 ] && echo -n "${S}"; echo "${CYAN} tail \$FGDIR/log/fgd50.elg ${NORM} Show last 10 entries in QoS log"; [ $t == 2 ] && CMD="tail $FGDIR/log/fgd50.elg" ;;
+	esac
+	echo -n " "; [ $t ==  3 ] && echo -n "${S}"; echo "${WARN} fgate unload ${NORM} Uninstall QoS Policy from localhost"; [ $t == 3 ] && CMD="fgate unload"
+	echo -n " "; [ $t ==  4 ] && echo -n "${S}"; echo "${ENAB} fgate fetch ${NORM} Retrieve QoS Policy that was last installed to localhost"; [ $t == 4 ] && CMD="fgate fetch"
+	echo -n " "; [ $t ==  5 ] && echo -n "${S}"; echo "${ENAB} fgate fetch -f ${NORM} Retrieve QoS Policy from security management"; [ $t == 5 ] && CMD="fgate fetch -f"
+	echo -n " "; [ $t ==  6 ] && echo -n "${S}"; echo "${WARN} fgate debug on ${NORM} Enable QoS debug mode"; [ $t == 6 ] && CMD="fgate debug on"
+	echo -n " "; [ $t ==  7 ] && echo -n "${S}"; echo "${ENAB} fgate debug off ${NORM} Disable QoS debug mode"; [ $t == 7 ] && CMD="fgate debug off"
+	echo -n " "; [ $t ==  8 ] && echo -n "${S}"; echo "${WARN} etmstop ${NORM} Stop QoS (FloodGate-1)"; [ $t == 8 ] && CMD="etmstop $ADD"
+	echo -n " "; [ $t ==  9 ] && echo -n "${S}"; echo "${ENAB} etmstart ${NORM} Start QoS (FloodGate-1)"; [ $t == 9 ] && CMD="etmstart $ADD"
+	 ;;
+   10)	echo "  MAIN < ${ENAB}THREAT EMULATION${NORM}"
+	echo
+	echo -n " "; [ $u ==  1 ] && echo -n "${S}"; echo "${CYAN} cpstat threat-emulation; cpstat threat-emulation -f update_status ${NORM} Show Threat-Emulation Status"; [ $u == 1 ] && CMD="cpstat threat-emulation; cpstat threat-emulation -f update_status; cpstat threat-emulation -f contract"
+	echo -n " "; [ $u ==  2 ] && echo -n "${S}"; echo "${CYAN} cpstat threat-emulation -f file_type_stat_file_scanned ${NORM} Show Threat-Emulation Statistics, Scanned Files"; [ $u == 2 ] && CMD="cpstat threat-emulation -f file_type_stat_file_scanned"
+	echo -n " "; [ $u ==  3 ] && echo -n "${S}"; echo "${CYAN} cpstat fw -f smtp ${NORM} Show SMTP status"; [ $u == 3 ] && CMD="cpstat fw -f smtp"
+	echo -n " "; [ $u ==  4 ] && echo -n "${S}"; echo "${CYAN} tecli show downloads images ${NORM} Show current version of Threat Emulation Image"; [ $u == 4 ] && CMD="tecli show downloads images"
+	echo -n " "; [ $u ==  5 ] && echo -n "${S}"; echo "${CYAN} tecli s s ${NORM} Show emulation statistics"; [ $u == 5 ] && CMD="tecli s s"
+	echo -n " "; [ $u ==  6 ] && echo -n "${S}"; echo "${CYAN} tecli s e e ${NORM} Show running emulations and their states"; [ $u == 6 ] && CMD="tecli s e e"
+	echo -n " "; [ $u ==  7 ] && echo -n "${S}"; echo "${CYAN} tecli s c i; tecli s c quo; tecli s c que ${NORM} Show information about ThreatCloud emulation"; [ $u == 7 ] && CMD="tecli s c i; tecli s c quo; tecli s c que"
+	echo -n " "; [ $u ==  8 ] && echo -n "${S}"; echo "${CYAN} tecli s t m; tecli s t h; tecli s t d ${NORM} Show global file emulation throughput per minute | hour | day"; [ $u == 8 ] && CMD="echo; echo 'Global file throughput (TE+AV): '; tecli sh th m; tecli sh th h; tecli sh th d"
+	echo -n " "; [ $u ==  9 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/postqueue -c /opt/postfix/etc/postfix/ -p ${NORM} Show postfix email queue"; [ $u == 9 ] && CMD="/opt/postfix/usr/sbin/postqueue -c /opt/postfix/etc/postfix/ -p 2>/dev/null"
+	echo
+	echo "  -- Mail logs -----------------------------------------------------------------------------------"
+	echo -n " "; [ $u == 10 ] && echo -n "${S}"; echo "${CYAN} tail \$FWDIR/log/emaild.mta.elg ${NORM} Show last 10 entries in MTA log"; [ $u == 10 ] && CMD="tail $FWDIR/log/emaild.mta.elg"
+	echo -n " "; [ $u == 11 ] && echo -n "${S}"; echo "${CYAN} tail /var/log/maillog ${NORM} Show last 10 entries in maillog"; [ $u == 11 ] && CMD="tail /var/log/maillog"
+	echo
+	echo "  -- Postfix queue message distribution (sk109699) -----------------------------------------------"
+	echo -n " "; [ $u == 12 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape | head ${NORM} Show Postfix queue union of the incoming and active queues - sk109699"; [ $u == 12 ] && CMD="/opt/postfix/usr/sbin/cpqshape | head"
+	echo -n " "; [ $u == 13 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape incoming | head ${NORM} Show Postfix queue incoming statistics"; [ $u == 13 ] && CMD="/opt/postfix/usr/sbin/cpqshape incoming | head"
+	echo -n " "; [ $u == 14 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape active | head ${NORM} Show Postfix active queue recipient statistics"; [ $u == 14 ] && CMD="/opt/postfix/usr/sbin/cpqshape active | head"
+	echo -n " "; [ $u == 15 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s active | head ${NORM} Show Postfix active queue sender statistics"; [ $u == 15 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s active | head"
+	echo -n " "; [ $u == 16 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape hold | head ${NORM} Show Postfix hold queue recipient statistics"; [ $u == 16 ] && CMD="/opt/postfix/usr/sbin/cpqshape hold | head"
+	echo -n " "; [ $u == 17 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s hold | head ${NORM} Show Postfix hold queue sender statistics"; [ $u == 17 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s hold | head"
+	echo -n " "; [ $u == 18 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape deferred | head ${NORM} Show Postfix deferred queue recipient statistics"; [ $u == 18 ] && CMD="/opt/postfix/usr/sbin/cpqshape deferred | head"
+	echo -n " "; [ $u == 19 ] && echo -n "${S}"; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s deferred | head ${NORM} Show Postfix deferred queue sender statistics"; [ $u == 19 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s deferred | head"
+	 ;;
+   11)	echo "  MAIN < ${ENAB}THREAT EXTRACTION${NORM}"
+	echo
+	echo -n " "; [ $v ==  1 ] && echo -n "${S}"; echo "${CYAN} cpstat scrub; cpstat scrub -f subscription_status ${NORM} Show Threat-Extraction Status"; [ $v == 1 ] && CMD="cpstat scrub; cpstat scrub -f subscription_status; cpstat scrub -f threat_extraction_statistics"
+	echo -n " "; [ $v ==  2 ] && echo -n "${S}"; echo "${CYAN} scrub counters state ${NORM} Show Files & Mail Statistics"; [ $v == 2 ] && CMD="scrub counters state"
+	echo -n " "; [ $v ==  3 ] && echo -n "${S}"; echo "${CYAN} scrub queues state ${NORM} Show information on Threat Extraction queues"; [ $v == 3 ] && CMD="scrub queues state"
+	echo -n " "; [ $v ==  4 ] && echo -n "${S}"; echo "${CYAN} scrub bypass state ${NORM} Show Threat-Extraction Bypass Status"; [ $v == 4 ] && CMD="scrub bypass state"
+	echo -n " "; [ $v ==  5 ] && echo -n "${S}"; echo "${WARN} scrub bypass on ${NORM} Suspend Threat Extraction by bypassing all files coming from MTA -> No files are cleaned!"; [ $v == 5 ] && CMD="scrub bypass on"
+	echo -n " "; [ $v ==  6 ] && echo -n "${S}"; echo "${ENAB} scrub bypass off ${NORM} Enable Threat Extraction by disabling bypass"; [ $v == 6 ] && CMD="scrub bypass off"
+  esac
+
+  echo
+  eval "$PRE"
+  eval "$RUN"
+  eval "$FIN"
+
+  if [[ $ISGW -eq "1" && -n $RUN ]]; then case `echo ${OS#*R*}` in 77.30|80.10) SXL=`fwaccel stat | grep "Accelerator Status :" | cut -c 22- | sed 's/on/On/g' | sed 's/off/Off/g'`;; *) SXL=`fwaccel stat | sed -n 4p | tr '|' ' ' | awk '{print $3}' | sed 's/enabled/On/g' | sed 's/disabled/Off/g'`; esac; if [[ $SXL == "Off" ]]; then SXL="${RED}${TXT}${BOLD}Off${NORM}"; fi; fi
+  if [[ $ISGW -eq "1" && $SXL == "On" ]]; then ADD="; fwaccel off; fwaccel on"; fi
+  LOAD=`uptime | sed 's/.*://' | tr -d , | awk '{print $1}'`
+
+  PRE=''
+  RUN=''
+  FIN=''
+
+  read -sn1;
+  test "$REPLY" == $'\e' && { echo -n $'\e[5n'; read -sn4; test "$REPLY" == $'\e[0n' || { REPLY=${REPLY:1:1}; read -sn2 drop; } }
+
+  case "$REPLY" in
+	A|t|T)
+		[ $i ==  0 ] && { ((j--)); [ $j == 0 ] && j=11; }
+		[ $i ==  1 ] && { ((k--)); [ $k == 0 ] && k=24; }
+		[ $i ==  2 ] && { ((l--)); [ $l == 0 ] && l=21; }
+		[ $i ==  3 ] && { ((m--)); [ $m == 0 ] && m=38; }
+		[ $i ==  4 ] && { ((n--)); [ $n == 0 ] && n=28; }
+		[ $i ==  5 ] && { ((o--)); [ $o == 0 ] && o=23; }
+		[ $i ==  6 ] && { ((p--)); [ $p == 0 ] && p=18; }
+		[ $i ==  7 ] && { ((r--)); [ $r == 0 ] && r=16; }
+		[ $i ==  8 ] && { ((s--)); [ $s == 0 ] && s=16; }
+		[ $i ==  9 ] && { ((t--)); [ $t == 0 ] && t=9;  }
+		[ $i == 10 ] && { ((u--)); [ $u == 0 ] && u=19; }
+		[ $i == 11 ] && { ((v--)); [ $v == 0 ] && v=6;  }
+	;;
+	B|g|G)
+		[ $i ==  0 ] && { ((j++)); [ $j == 12 ] && j=1; }
+		[ $i ==  1 ] && { ((k++)); [ $k == 25 ] && k=1; }
+		[ $i ==  2 ] && { ((l++)); [ $l == 22 ] && l=1; }
+		[ $i ==  3 ] && { ((m++)); [ $m == 39 ] && m=1; }
+		[ $i ==  4 ] && { ((n++)); [ $n == 29 ] && n=1; }
+		[ $i ==  5 ] && { ((o++)); [ $o == 24 ] && o=1; }
+		[ $i ==  6 ] && { ((p++)); [ $p == 19 ] && p=1; }
+		[ $i ==  7 ] && { ((r++)); [ $r == 17 ] && r=1; }
+		[ $i ==  8 ] && { ((s++)); [ $s == 17 ] && s=1; }
+		[ $i ==  9 ] && { ((t++)); [ $t == 10 ] && t=1; }
+		[ $i == 10 ] && { ((u++)); [ $u == 20 ] && u=1; }
+		[ $i == 11 ] && { ((v++)); [ $v ==  7 ] && v=1; }
+	;;
+	C|h|H)	        [ $i == 0 ] && i=$j ;;
+	D|f|F|$'\x7f' ) [ $i != 0 ] && i=0 ;;
+	''            ) [ $i == 0 ] && i=$j || { echo -n "${RED}${TXT} Executing ? ${NORM} # $CMD"; read -sn1 USER_CONFIRMATION; case "$USER_CONFIRMATION" in '') PRE='echo [Executing:]# "$CMD"'; RUN="$CMD"; FIN="echo; echo \"${ENAB}Done.${NORM}\"";; $'\e') echo -n $'\e[5n'; read -sn4; test "$REPLY" == $'\e[0n' || { read -sn2 drop; }; continue;; *) continue;; esac } ;;
+	$'[' ) read -sn2 drop ;;
+	' '  ) return ;;
+	v|V  ) if [[ -n $UPDT ]]; then echo "$UPDT" | more; fi ;;
+	i|I  ) if [[ -n $UPDT ]]; then echo "$UPDT" > "$THIS"; eval $THIS; exit 0; fi ;;
+	+    ) if [[ $vsname != *'unavail'* ]]; then vsenv `expr $INSTANCE_VSID + 1` >/dev/null 2>&1; load; fi ;;
+	-    ) if [[ $vsname != *'unavail'* ]]; then vsenv `expr $INSTANCE_VSID - 1` >/dev/null 2>&1; load; fi ;;
+ 	*    ) echo $REPLY; exit 0
+  esac
+
+done
+exit 0

@@ -1,0 +1,280 @@
+
+	echo "  -- Standalone Firewall & Management -----------------------------------------------------------"
+; echo "${WARN} cpwd_admin stop -name FWM -path "$FWDIR/bin/fw" -command "fw kill fwm" ${NORM} Stop Firewall Management only"; [ $k == 24 ] && CMD="cpwd_admin stop -name FWM -path \"$FWDIR/bin/fw\" -command \"fw kill fwm\""
+; echo "${ENAB} cpwd_admin start -name FWM -path "$FWDIR/bin/fwm" -command "fwm" ${NORM} Start Firewall Management only"; [ $k == 25 ] && CMD="cpwd_admin start -name FWM -path \"$FWDIR/bin/fwm\" -command \"fwm\""
+	 ;;
+    2)	echo "  MAIN < ${ENAB}FIREWALL MANAGEMENT${NORM}"
+	echo
+; echo "${CYAN} fwm ver ${NORM} Show version"; [ $l == 1 ] && CMD="fwm ver"
+	case `echo ${OS#*R*}` in 77.30)
+; echo "${CYAN} cpstat mg ${NORM} Show Management Server & Management-HA status + connected management clients"; [ $l == 2 ] && CMD="cpstat mg" ;;
+	*)
+; echo "${CYAN} cpstat mg; cpm_status.sh; server_status.sh; api status ${NORM} Show Management Server & Management-HA & API status + connected management clients"; [ $l == 2 ] && CMD="cpstat mg; $FWDIR/scripts/cpm_status.sh; echo; $FWDIR/scripts/server_status.sh; api status"
+	esac
+; echo "${CYAN} cpstat cpsead ${NORM} Show status of SmartEvent Correlation Unit"; [ $l == 3 ] && CMD="cpstat cpsead"
+; echo "${CYAN} migrate export $(hostname)_export_$(date +%Y%m%d%H%M) ${NORM} Export management configuration"; [ $l == 4 ] && CMD="$FWDIR/bin/upgrade_tools/migrate export $(hostname)_export_$(date +%Y%m%d%H%M)"
+; echo "${CYAN} rs_db_tool -operation list ${NORM} Show DAIP gateways database entries"; [ $l == 5 ] && CMD="rs_db_tool -operation list"
+; echo "${CYAN} vpn overlap_encdom ${NORM} Show overlapping VPN encryption domains (WAIT until result is shown)"; [ $l == 6 ] && CMD="vpn overlap_encdom"
+; echo "${CYAN} cp_conf client get ${NORM} Show GUI clients"; [ $l == 7 ] && CMD="cp_conf client get"
+; echo "${CYAN} cp_conf finger get ${NORM} Show ICA certificate's fingerprint"; [ $l == 8 ] && CMD="cp_conf finger get"
+; echo "${CYAN} cpca_client lscert ${NORM} Show ICA certificate's initialization name"; [ $l == 9 ] && CMD="echo; echo -n ' '; cpca_client lscert -dn \"cp_mgmt,\" -stat Valid -kind SIC | grep Subject | head -n1 | sed 's/^.*O=//' | head -c-7 | sed -e 's/[.]*$//'; echo; echo"
+; echo "${CYAN} tail -n 20 \$FWDIR/log/fwm.elg ${NORM} Show last 20 entries in FWM log"; [ $l == 10 ] && CMD="tail -n 20 $FWDIR/log/fwm.elg | more"
+	case `echo ${OS#*R*}` in 77.30)
+; echo "${CYAN} vpn mcc lca ${NORM} List all installed CA Certificate Authorities"; [ $l == 11 ] && CMD="vpn mcc lca | more"
+; echo "${CYAN} vpn mcc show internal_ca ${NORM} Show details for Internal_CA"; [ $l == 12 ] && CMD="vpn mcc show internal_ca" ;;
+	*)
+; echo "${CYAN} mcc lca ${NORM} List all installed CA Certificate Authorities"; [ $l == 11 ] && CMD="mcc lca | more"
+; echo "${CYAN} mcc show internal_ca ${NORM} Show details for Internal_CA"; [ $l == 12 ] && CMD="mcc show internal_ca"
+	esac
+; echo "${CYAN} cpca_client lscert | grep -A 2 cp_mgmt ${NORM} Show ICA certificate's status"; [ $l == 13 ] && CMD="cpca_client lscert | grep -A 2 cp_mgmt"
+; echo "${CYAN} cpca_client set_mgmt_tool print ${NORM} Show ICA Management Tool status"; [ $l == 14 ] && CMD="cpca_client set_mgmt_tool print"
+; echo "${WARN} cpca_client set_mgmt_tool on -no_ssl ${NORM} Start the ICA Management Tool; Open it with your Web browser at http://$(grep $(hostname)$ /etc/hosts | awk '{print $1}'):18265"; [ $l == 15 ] && CMD="cpca_client set_mgmt_tool on -no_ssl"
+; echo "${ENAB} cpca_client set_mgmt_tool off ${NORM} Stop the ICA Management Tool"; [ $l == 16 ] && CMD="cpca_client set_mgmt_tool off"
+; echo "${WARN} \$RTDIR/scripts/stopSmartView ${NORM} Stop SmartView"; [ $l == 17 ] && CMD="$RTDIR/scripts/stopSmartView"
+; echo "${ENAB} \$RTDIR/scripts/startSmartView ${NORM} Start SmartView"; [ $l == 18 ] && CMD="$RTDIR/scripts/startSmartView"
+; echo "${ENAB} fwm dbload $MGMT ${NORM} Install Database on $MGMT"; [ $l == 19 ] && CMD="fwm dbload $MGMT"
+; echo "${WARN} fw debug fwm on TDERROR_ALL_ALL=5 ${NORM} Enable FWM Debugging"; [ $l == 20 ] && CMD="fw debug fwm on TDERROR_ALL_ALL=5; tail -F $FWDIR/log/fwm.elg &> /var/tmp/fwm_debug.txt"
+; echo "${ENAB} fw debug fwm off ${NORM} Disable FWM Debugging"; [ $l == 21 ] && CMD="fw debug fwm off; more /var/tmp/fwm_debug.txt"
+	 ;;
+    3)	echo "  MAIN < ${ENAB}FIREWALL GATEWAY${NORM}"
+	echo
+; echo "${CYAN} fw stat; ips stat; fw stat -b AMW; cpstat -f all polsrv; cp_conf sic state ${NORM} Show FW + IPS/TP + Policy Server + SIC status"; [ $m == 1 ] && CMD="fw stat; echo; ips stat; echo 'IPS Update Time: '$IPSUPD2; echo; ips bypass stat; echo -n 'IPS profile name: '; cat $FWDIR/state/local/AMW/local.set | grep -A15 malware_profiles | grep :name | awk '{print \$2}' | tr -d '()'; echo; fw stat -b AMW; echo; cpstat -f subscription_status antimalware; cpstat -f update_status antimalware; ls -l $FWDIR/conf/*.csv; cpstat -f all polsrv; cp_conf sic state"
+; echo "${CYAN} fw getifs ${NORM} Show interfaces, IP addresses + netmask"; [ $m == 2 ] && CMD="fw getifs | more"
+; echo "${CYAN} fw ctl iflist ${NORM} List all interface names (for use with connStat - sk85780)"; [ $m == 3 ] && CMD="fw ctl iflist | more"
+; echo "${CYAN} cpstat blades ${NORM} Quickly show top rule hits, connections and packets statistics"; [ $m == 4 ] && CMD="cpstat blades"
+; echo "${CYAN} cpstat fw -f policy ${NORM} Show policy information and interface statistics"; [ $m == 5 ] && CMD="cpstat fw -f policy | more"
+; echo "${CYAN} netstat -atun ${NORM} Show established connections"; [ $m == 6 ] && CMD="netstat -atun | more"
+; echo "${CYAN} fw ctl arp -n ${NORM} Show all proxy arp's and active local.arp entries"; [ $m == 7 ] && CMD="fw ctl arp -n | more"
+; echo "${CYAN} fw ctl zdebug -T drop ${NORM} Show dropped connections + reason (with Timestamp)"; [ $m == 8 ] && CMD="fw ctl zdebug -T drop | more"
+; echo "${CYAN} fw tab -s -t connections ${NORM} Show load on FW gateway"; [ $m == 9 ] && CMD="fw tab -s -t connections | more"
+; echo "${CYAN} adlog a dc; adlog a s ${NORM} Identity Awareness > Show Domain Controllers status"; [ $m == 10 ] && CMD="adlog a dc; adlog a s"
+; echo "${CYAN} adlog a query all ${NORM} Identity Awareness > Show this gateway's complete adlog database"; [ $m == 11 ] && CMD="adlog a query all | more"
+; echo "${CYAN} pdp status show ${NORM} Identity Awareness > Show pdp status information"; [ $m == 12 ] && CMD="pdp status show"
+; echo "${CYAN} pdp monitor all ${NORM} Identity Awareness > Show information for all connected sessions"; [ $m == 13 ] && CMD="pdp monitor all | more"
+; echo "${CYAN} pdp connections pep ${NORM} Identity Awareness > Show PDP to PEP connection table"; [ $m == 14 ] && CMD="pdp connections pep | more"
+; echo "${CYAN} pep show stat ${NORM} Identity Awareness > Show pep status information"; [ $m == 15 ] && CMD="pep show stat"
+; echo "${CYAN} pep show pdp all ${NORM} Identity Awareness > Show all connected pdp's"; [ $m == 16 ] && CMD="pep show pdp all"
+; echo "${CYAN} pep show user all ${NORM} Identity Awareness > Show all sessions with information summary"; [ $m == 17 ] && CMD="pep show user all | more"
+; echo "${CYAN} dynamic_objects -l ${NORM} Show all dynamic objects"; [ $m == 18 ] && CMD="dynamic_objects -l | more"
+; echo "${CYAN} fwaccel stat ${NORM} Show acceleration status on FW gateway"; [ $m == 19 ] && CMD="fwaccel stat | more"
+; echo "${CYAN} fwaccel stats ${NORM} Show acceleration status on FW gateway"; [ $m == 20 ] && CMD="fwaccel stats | more"
+; echo "${CYAN} fwaccel stats -s ${NORM} Show acceleration status on FW gateway"; [ $m == 21 ] && CMD="fwaccel stats -s | more"
+; echo "${CYAN} fw tab -t sam_blocked_ips ${NORM} Show IPs blocked by SAM"; [ $m == 22 ] && CMD="fw tab -t sam_blocked_ips | more"
+; echo "${CYAN} grep \$FWDIR/state/local/FW1/local.set ${NORM} Show Geo Policy on FW gateway"; [ $m == 23 ] && CMD="if [ -z `pidof in.geod` ]; then echo; echo 'Geo Policy Blade not active!'; echo; else echo; echo -n '### GEO POLICY: '; cat $FWDIR/state/local/FW1/local.set | egrep -A2 geo_settings_profile | tail -n1 | tr -d '():val ' | sed -e 's/$/ ###/'; echo; echo -e ' Country\t\tDirection\tAction'; echo -n ' '; printf -- '-%.0s' {1..46}; egrep -B4 country_dispaly_name $FWDIR/state/local/FW1/local.set | tac | sed '/alert/d' | tr -d '():' | sed ':a;N;\$!ba;s/\n/ /g' | sed 's/ -- /\n/g' | sed 's/country_dispaly_name//g' | sed 's/country_code /(/g' | sed 's/ direction /)\t\t/g' | sed 's/ block true/\tBLOCK/g' | sed 's/ block false/\tACCEPT/g' | sort; echo; fi"
+; echo "${WARN} fwaccel off ${NORM} Disable SecureXL acceleration"; [ $m == 24 ] && CMD="fwaccel off"
+; echo "${ENAB} fwaccel on ${NORM} Enable SecureXL acceleration"; [ $m == 25 ] && CMD="fwaccel on"
+; echo "${WARN} fw unloadlocal; fw stat ${NORM} Unload security policy on localhost"; [ $m == 26 ] && CMD="fw unloadlocal; echo 1 > /proc/sys/net/ipv4/ip_forward; fw stat"
+; echo "${ENAB} fw fetch localhost; fw stat ${NORM} Reload security policy from localhost"; [ $m == 27 ] && CMD="fw fetch localhost; fw stat"
+; echo "${ENAB} fw fetch $MGMT; fw stat ${NORM} Reload security policy from FW management"; [ $m == 28 ] && CMD="fw fetch $MGMT; fw stat"
+	case `echo ${OS#*R*}` in 77.30|R80.10)
+; echo "${WARN} fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off $ADD ${NORM} Disable Anti-Spoofing"; [ $m == 29 ] && CMD="fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off $ADD"
+; echo "${ENAB} fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on $ADD ${NORM} Enable Anti-Spoofing"; [ $m == 30 ] && CMD="fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on $ADD" ;;
+	*)
+; echo "${WARN} fw ctl set int fw_antispoofing_enabled 0 $ADD ${NORM} Disable Anti-Spoofing"; [ $m == 29 ] && CMD="fw ctl set int fw_antispoofing_enabled 0 $ADD"
+; echo "${ENAB} fw ctl set int fw_antispoofing_enabled 1 $ADD ${NORM} Enable Anti-Spoofing"; [ $m == 30 ] && CMD="fw ctl set int fw_antispoofing_enabled 1 $ADD"
+	esac
+; echo "${WARN} ips off; ips stat ${NORM} Disable IPS"; [ $m == 31 ] && CMD="ips off $ADD; ips stat"
+; echo "${ENAB} ips on; ips stat ${NORM} Enable IPS"; [ $m == 32 ] && CMD="ips on $ADD; ips stat"
+; echo "${WARN} fw amw unload; fw stat -b AMW ${NORM} Disable Threat Prevention"; [ $m == 33 ] && CMD="fw amw unload; fw stat -b AMW"
+; echo "${ENAB} fw amw fetch local; fw stat -b AMW ${NORM} Enable Threat Prevention"; [ $m == 34 ] && CMD="fw amw fetch local; fw stat -b AMW"
+; echo "${WARN} fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1 ${NORM} Disable Stateful Inspection"; [ $m == 35 ] && CMD="fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1"
+; echo "${ENAB} fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0 ${NORM} Enable Stateful Inspection"; [ $m == 36 ] && CMD="fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0"
+	echo "  -----------------------------------------------------------------------------------------------"
+; echo "${WARN} PANIC MODE ${NORM} (Disable IPS, Threat Prevention, Anti-Spoofing, SecureXL, Stateful Inspection)"; [ $m == 37 ] && CMD="ips off; fw amw unload; fw ctl set int fw_antispoofing_enabled 0; sim feature anti_spoofing off; fwaccel off; fw ctl set int fw_allow_out_of_state_tcp 1; fw ctl set int fw_allow_out_of_state_icmp 1"
+; echo "${ENAB} NORMAL MODE ${NORM} (Enable IPS, Threat Prevention, Anti-Spoofing, SecureXL, Stateful Inspection)"; [ $m == 38 ] && CMD="ips on; fw amw fetch local; fw ctl set int fw_antispoofing_enabled 1; sim feature anti_spoofing on; fwaccel off; fwaccel on; fw ctl set int fw_allow_out_of_state_tcp 0; fw ctl set int fw_allow_out_of_state_icmp 0"
+	;;
+    4)	echo "  MAIN < ${ENAB}FIREWALL TROUBLESHOOTING${NORM}"
+	echo "  -- Firewall Logs ------------------------------------------------------------------------------"
+; echo "${CYAN} tail -n 20 \$FWDIR/log/fwd.elg ${NORM} Show last 20 entries in FWD log"; [ $n == 2 ] && CMD="tail -n 20 $FWDIR/log/fwd.elg | more"
+	echo
+	echo "  -- ClusterXL ----------------------------------------------------------------------------------"
+; echo "${CYAN} cphaprob stat; cpstat -f all ha; fw hastat ${NORM} Show ClusterXL mode & HA status"; [ $n == 3 ] && CMD="cphaprob stat; cpstat -f all ha; fw hastat"
+; echo "${CYAN} cphaprob -l list ${NORM} Show ClusterXL devices & status"; [ $n == 4 ] && CMD="cphaprob -l list"
+; echo "${CYAN} cphaprob -a if ${NORM} Show ClusterXL interfaces"; [ $n == 5 ] && CMD="cphaprob -a if"
+; echo "${CYAN} fw ctl pstat ${NORM} Show ClusterXL sync status"; [ $n == 6 ] && CMD="fw ctl pstat"
+; echo "${CYAN} cphaconf cluster_id get ${NORM} Show Cluster ID"; [ $n == 7 ] && CMD="cphaconf cluster_id get"
+; echo "${CYAN} clish -c \"show routed cluster-state detailed\" ${NORM} Show ClusterXL failover history"; [ $n == 8 ] && CMD="clish -c \"show routed cluster-state detailed\""
+; echo "${WARN} clusterXL_admin down ${NORM} Create ClusterXL faildevice"; [ $n == 9 ] && CMD="clusterXL_admin down"
+; echo "${ENAB} clusterXL_admin up ${NORM} Delete ClusterXL faildevice"; [ $n == 10 ] && CMD="clusterXL_admin up"
+	echo
+	echo "  -- Address Spoofing ---------------------------------------------------------------------------"
+; echo "${CYAN} fw ctl zdebug drop | grep spoofing ${NORM} Show dropped connections with reason: Address Spoofing"; [ $n == 12 ] && CMD="fw ctl zdebug drop | grep spoofing"
+	echo
+	echo "  -- Threat Prevention --------------------------------------------------------------------------"
+; echo "${CYAN} cat \$FWDIR/conf/malware_config ${NORM} Show malware policy"; [ $n == 13 ] && CMD="cat $FWDIR/conf/malware_config | more"
+; echo "${WARN} vi \$FWDIR/conf/malware_config ${NORM} Edit malware policy"; [ $n == 14 ] && CMD="vi $FWDIR/conf/malware_config"
+	echo
+	echo "  -- SSL Troubleshooting ------------------------------------------------------------------------"
+; echo "${CYAN} fw ctl get int enhanced_ssl_inspection ${NORM} Show enhanced SSL inspection status"; [ $n == 15 ] && CMD="fw ctl get int enhanced_ssl_inspection"
+; echo "${CYAN} fw ctl get int bypass_on_enhanced_ssl_inspection ${NORM} Check if enhanced SSL inspection bypass is on"; [ $n == 16 ] && CMD="fw ctl get int bypass_on_enhanced_ssl_inspection"
+; echo "${CYAN} cat \$CPDIR/registry/HKLM_registry.data | grep -i ecdhe ${NORM} Show ECDHE ciphers in registry"; [ $n == 17 ] && CMD="cat $CPDIR/registry/HKLM_registry.data | grep -i ecdhe"
+	echo "  -- System Activity Report (sk112734) ----------------------------------------------------------"
+; echo "${CYAN} sar ${NORM} Show System Activity Report"; [ $n == 18 ] && CMD="sar | more"
+; echo "${CYAN} sar -u ${NORM} Show CPU utilization"; [ $n == 19 ] && CMD="sar -u | more"
+; echo "${CYAN} sar -q ${NORM} Show load average statistics"; [ $n == 20 ] && CMD="sar -q | more"
+; echo "${CYAN} sar -r ${NORM} Show memory statistics"; [ $n == 21 ] && CMD="sar -r | more"
+; echo "${CYAN} sar -W ${NORM} Show swapping statistics"; [ $n == 22 ] && CMD="sar -W | more"
+; echo "${CYAN} sar -n EDEV ${NORM} Show EDEV network statistics"; [ $n == 23 ] && CMD="sar -n EDEV | more"
+; echo "${CYAN} sar -n ALL ${NORM} Show ALL network statistics"; [ $n == 24 ] && CMD="sar -n ALL | more"
+; echo "${CYAN} iostat -p ALL ${NORM} Show CPU statistics and input/output statistics for devices"; [ $n == 25 ] && CMD="iostat -p ALL | more"
+; echo "${CYAN} mpstat -P ALL ${NORM} Show processors related statistics"; [ $n == 26 ] && CMD="mpstat -P ALL | more"
+	echo
+	echo "  -- Check Point Appliance ----------------------------------------------------------------------"
+; echo "${CYAN} show sysenv all ${NORM} Show system environment (PSU, Fans, Temperature, etc.)"; [ $n == 27 ] && CMD="clish -c \"show sysenv all\" | more"
+; echo "${CYAN} service ipmi start; ipmitool bmc info; service ipmi stop ${NORM} Show LOM firmware version"; [ $n == 28 ] && CMD="service ipmi start; ipmitool bmc info | egrep -C 9999 --color=auto $'Firmware Revision :'; service ipmi stop"
+	 ;;
+    5)	echo "  MAIN < ${ENAB}GATEWAY PERFORMANCE OPTIMIZATION${NORM}"
+	echo
+; echo "${CYAN} fw ctl multik stat ${NORM} Show multi-kernel & peak connections"; [ $o == 1 ] && CMD="fw ctl multik stat"
+; echo "${CYAN} fw ctl affinity -l -r ${NORM} Show interface affinity & IRQs"; [ $o == 2 ] && CMD="fw ctl affinity -l -r"
+; echo "${CYAN} fw ctl affinity -l -a ${NORM} Show interface affinity"; [ $o == 3 ] && CMD="fw ctl affinity -l -a"
+; echo "${CYAN} netstat -s ${NORM} Show network statistics"; [ $o == 4 ] && CMD="netstat -s | more"
+; echo "${CYAN} netstat -ni ${NORM} Check for drop on interfaces"; [ $o == 5 ] && CMD="netstat -ni | more"
+; echo "${CYAN} cpstat os -f multi_cpu ${NORM} Show CPU load on all cores"; [ $o == 6 ] && CMD="cpstat os -f multi_cpu | more"
+; echo "${CYAN} sim if ${NORM} Show list of interfaces used and seen by SecureXL"; [ $o == 7 ] && CMD="sim if | more"
+; echo "${CYAN} sim affinity -l ${NORM} Show current affinity of network interfaces to CPU cores"; [ $o == 8 ] && CMD="sim affinity -l | more"
+; echo "${CYAN} cpmq get -a ${NORM} Show Multi-Queue configuration for Intel Igb/Ixgbe interfaces"; [ $o == 9 ] && CMD="fwaccel stat | head -n 1; cpmq get -a | more"
+; echo "${CYAN} watch --i 1 --d 'cpstat -f fragments fw' ${NORM} Watch every 1.0s if GW handles any fragmentation"; [ $o == 10 ] && CMD="watch --i 1 --d 'cpstat -f fragments fw'"
+; echo "${CYAN} ps axwf -o pid,cpuid,pcpu,pmem,time,comm ${NORM} Show processes & daemons utilization by cpu-core, mem"; [ $o == 11 ] && CMD="ps axwf -o pid,cpuid,pcpu,pmem,time,comm"
+	case `echo ${OS#*R*}` in 77.30)
+; echo "${CYAN} fw ctl multik get_mode ${NORM} Show CoreXL Dynamic Dispatcher and Firewall Priority Queues status"; [ $o == 12 ] && CMD="fw ctl multik get_mode"
+; echo "${ENAB} fw ctl multik set_mode 0 ${NORM} Disable CoreXL Dynamic Dispatcher and Firewall Priority Queues (Default)"; [ $o == 13 ] && CMD="fw ctl multik set_mode 0"
+; echo "${WARN} fw ctl multik set_mode 1 ${NORM} Monitor Heavy Connections in CPView"; [ $o == 14 ] && CMD="fw ctl multik set_mode 1"
+; echo "${WARN} fw ctl multik set_mode 9 ${NORM} Enable CoreXL Dynamic Dispatcher and Firewall Priority Queues"; [ $o == 15 ] && CMD="fw ctl multik set_mode 9" ;;
+	*)
+; echo "${CYAN} fw ctl multik dynamic_dispatching get_mode ${NORM} Show CoreXL Dynamic Dispatcher status"; [ $o == 12 ] && CMD="fw ctl multik dynamic_dispatching get_mode"
+; echo "${ENAB} fw ctl multik dynamic_dispatching on ${NORM} Enable CoreXL Dynamic Dispatcher (Default)"; [ $o == 13 ] && CMD="fw ctl multik dynamic_dispatching on"
+; echo "${WARN} fw ctl multik dynamic_dispatching off ${NORM} Disable CoreXL Dynamic Dispatcher"; [ $o == 14 ] && CMD="fw ctl multik dynamic_dispatching off"
+; echo "${WARN} fw ctl multik prioq ${NORM} Manage Firewall Priority Queues"; [ $o == 15 ] && CMD="fw ctl multik prioq"
+	esac
+	echo
+	echo "  Performance Assessment \"${BOLD}Super Seven${NORM}\" ( https://community.checkpoint.com/message/28633 )"
+; echo "${CYAN}  #1 fwaccel stat ${NORM} Check that SexureXL & Accept Templates are enabled"; [ $o == 16 ] && CMD="fwaccel stat"
+; echo "${CYAN}  #2 fwaccel stats -s ${NORM} Check that F2F pkts are below 30%, PXL around 50% is normal"; [ $o == 17 ] && CMD="fwaccel stats -s"
+; echo "${CYAN}  #3 cpuinfo ${NORM} Check # of cores and HyperThreading status"; [ $o == 18 ] && CMD="grep -c  ^processor  /proc/cpuinfo && /sbin/cpuinfo"
+; echo "${CYAN}  #4 fw ctl affinity -l -r ${NORM} Check for allocations of SND/IRQ and FW worker cores"; [ $o == 19 ] && CMD="fw ctl affinity -l -r | more"
+; echo "${CYAN}  #5 netstat -ni ${NORM} Check for RX/TX errors (RX-DRP should be <0.1%)"; [ $o == 20 ] && CMD="netstat -ni | more"
+; echo "${CYAN}     sar -n EDEV ${NORM} Check for RX/TX errors within last 30 days"; [ $o == 21 ] && CMD="sar -n EDEV | more"
+; echo "${CYAN}  #6 fw ctl multik stat ${NORM} Check for imbalances of connections on FW worker cores"; [ $o == 22 ] && CMD="fw ctl multik stat"
+; echo "${CYAN}  #7 cpstat os -f multi_cpu ${NORM} Check for high SND/IRQ and FW worker core utilization"; [ $o == 23 ] && CMD="cpstat os -f multi_cpu"
+	 ;;
+    6)	echo "  MAIN < ${ENAB}VPN TROUBLESHOOTING${NORM}"
+	echo
+; echo "${CYAN} fw tab -f -t vpn_routing ${NORM} Show VPN routing"; [ $p == 1 ] && CMD="`base64 -id <<<
+	echo
+	echo "  IPv4 syntax"
+; echo "${CYAN} vpn tu ${NORM} Open VPN tunnel utility"; [ $p == 2 ] && CMD="vpn tu"
+; echo "${CYAN} vpn tu mstats ${NORM} Show distribution of VPN traffic between CoreXL FW instances"; [ $p == 3 ] && CMD="vpn tu mstats | more"
+; echo "${CYAN} vpn tu tlist ${NORM} Show VPN tunnels info"; [ $p == 4 ] && CMD="vpn tu tlist | more"
+; echo "${CYAN} vpn cu ${NORM} Open cipher utility"; [ $p == 5 ] && CMD="vpn cu"
+; echo "${CYAN} vpn drv stat ${NORM} Show status of VPN kernel module"; [ $p == 6 ] && CMD="vpn drv stat"
+; echo "${CYAN} vpn dump_psk ${NORM} Show hash (SHA256) of peers' pre-shared keys"; [ $p == 7 ] && CMD="vpn dump_psk | more"
+; echo "${CYAN} vpn overlap_encdom ${NORM} Show overlapping VPN encryption domains"; [ $p == 8 ] && CMD="vpn overlap_encdom"
+; echo "${CYAN} vpn ipafile_check $FWDIR/conf/ipassignment.conf ${NORM} Check integrity of ipassignment.conf"; [ $p == 9 ] && CMD="vpn ipafile_check $FWDIR/conf/ipassignment.conf"
+; echo "${WARN} vpn debug trunc; vpn debug on; vpn debug ikeon ${NORM} Start VPN debug mode"; [ $p == 10 ] && CMD="vpn debug trunc; vpn debug on; vpn debug ikeon"
+; echo "${ENAB} vpn debug ikeoff; vpn debug off; file $FWDIR/log/ike.elg ${NORM} Stop VPN debug mode"; [ $p == 11 ] && CMD="vpn debug ikeoff; vpn debug off; file $FWDIR/log/ike.elg"
+	echo
+	echo "  IPv6 syntax"
+; echo "${CYAN} vpn6 tu ${NORM} Open VPN tunnel utility"; [ $p == 12 ] && CMD="vpn6 tu"
+; echo "${CYAN} vpn6 tu mstats ${NORM} Show distribution of VPN traffic between CoreXL FW instances"; [ $p == 13 ] && CMD="vpn6 tu mstats"
+; echo "${CYAN} vpn6 tu tlist ${NORM} Show VPN tunnels info"; [ $p == 14 ] && CMD="vpn6 tu tlist"
+	echo
+	echo "  Remote Access"
+; echo "${CYAN} cpstat -f all polsrv ${NORM} Show status of desktop policy server"; [ $p == 15 ] && CMD="cpstat -f all polsrv"
+; echo "${CYAN} fw tab -t om_assigned_ips -f -u ${NORM} Show OfficeMode IPs of connected Remote Access users"; [ $p == 16 ] && CMD="fw tab -t om_assigned_ips -f -u | grep UserName | awk '{print \$15 \$17}' | tr ';' ' '"
+; echo "${CYAN} vpn show_tcpt ${NORM} Show Visitor Mode users"; [ $p == 17 ] && CMD="vpn show_tcpt | more"
+; echo "${CYAN} fw tab -t userc_users -s ${NORM} Show number of connected remote access users under the #VALS column"; [ $p == 18 ] && CMD="fw tab -t userc_users -s | more"
+
+	 ;;
+    7)	echo "  MAIN < ${ENAB}VSX TROUBLESHOOTING${NORM}"
+	echo
+; echo "${CYAN} vsx stat -v; cpstat vsx; cpstat vsx -f stat ${NORM} Show detailed VSX status"; [ $r == 1 ] && CMD="vsx stat -v; cpstat vsx; cpstat vsx -f stat"
+; echo "${CYAN} vsx stat -vs \$INSTANCE_VSID ${NORM} Show Virtual Device status"; [ $r == 2 ] && CMD="vsx stat -vs $INSTANCE_VSID"
+; echo "${CYAN} vsx stat -l ${NORM} Show status of all Virtual Devices"; [ $r == 3 ] && CMD="vsx stat -l | more"
+; echo "${CYAN} cphaprob stat ${NORM} Show VSX cluster status"; [ $r == 4 ] && CMD="cphaprob stat"
+; echo "${CYAN} cphaprob -vs \$INSTANCE_VSID stat ${NORM} Show cluster status for specific VS" ; [ $r == 5 ] && CMD="cphaprob -vs $INSTANCE_VSID stat"
+; echo "${CYAN} fw ctl zdebug -T drop | egrep '^;[^;]+;\[\$INSTANCE_VSID\]' ${NORM} Show dropped connections + reason (with Timestamp) for specific VS"; [ $r == 6 ] && CMD="fw ctl zdebug -T drop | egrep '^;[^;]+;\[$INSTANCE_VSID\]'"
+; echo "${CYAN} vsx mstat ${NORM} Show VSX memory status"; [ $r == 7 ] && CMD="vsx mstat"
+; echo "${CYAN} vsx mstat status ${NORM} Show if memory resource monitoring is enabled or disabled"; [ $r == 8 ] && CMD="vsx mstat status"
+; echo "${ENAB} vsx mstat enable; vsx mstat status ${NORM} Enable memory resource monitoring"; [ $r == 9 ] && CMD="vsx mstat enable; vsx mstat status"
+; echo "${WARN} vsx mstat disable; vsx mstat status ${NORM} Disable memory resource monitoring"; [ $r == 10 ] && CMD="vsx mstat disable; vsx mstat status"
+; echo "${CYAN} vsx resctrl stat ${NORM} Show CPU consumption per Virtual Device"; [ $r == 11 ] && CMD="vsx resctrl stat"
+; echo "${CYAN} vsx resctrl monitor show ${NORM} Show Resource Control Monitor status"; [ $r == 12 ] && CMD="vsx resctrl monitor show"
+; echo "${ENAB} vsx resctrl monitor enable ${NORM} Enable Resource Control Monitoring"; [ $r == 13 ] && CMD="vsx resctrl monitor enable"
+; echo "${WARN} vsx resctrl monitor disable ${NORM} Disable Resource Control Monitoring"; [ $r == 14 ] && CMD="vsx resctrl monitor disable"
+; echo "${WARN} vsx resctrl stop ${NORM} Stop Resource Control Monitor"; [ $r == 15 ] && CMD="vsx resctrl stop"
+; echo "${WARN} vsx resctrl reset ${NORM} Reset Monitoring statistics"; [ $r == 16 ] && CMD="vsx resctrl reset"
+	 ;;
+    8)	echo "  MAIN < ${ENAB}MDS TROUBLESHOOTING${NORM}"
+	echo
+; echo "${CYAN} mdsstat ${NORM} Show MDS status"; [ $s == 1 ] && CMD="mdsstat"
+; echo "${CYAN} mdsconfig ${NORM} Open MDS configuration utility"; [ $s == 2 ] && CMD="mdsconfig"
+; echo "${CYAN} mdsquerydb MDSs ${NORM} Show names and IPs of all MDSs"; [ $s == 3 ] && CMD="mdsquerydb MDSs"
+; echo "${CYAN} mdsquerydb Domains ${NORM} Show names of all Domains"; [ $s == 4 ] && CMD="mdsquerydb Domains | more"
+; echo "${CYAN} mdsquerydb GuiClients ${NORM} Show names and IPs of all GUI clients"; [ $s == 5 ] && CMD="mdsquerydb GuiClients | more"
+; echo "${CYAN} mdsquerydb DomainManagementServers ${NORM} Show names of all DMSs"; [ $s == 6 ] && CMD="mdsquerydb DomainManagementServers | more"
+; echo "${CYAN} mdsenv ${NORM} Set shell for Multi-Domain Server level commands (mdsstart, mdsstop, ..)"; [ $s == 7 ] && CMD="mdsenv"
+; echo "${CYAN} mdsenv <DMS_ID or DMS_IP or DMS_Name> ${NORM} Set shell for specific DMS environment"
+; echo "${CYAN} mcd ${NORM} Directory change to $FWDIR"; [ $s == 8 ] && CMD="mcd"
+; echo "${CYAN} send_command -local ${NORM} Enter send_command Clish (sk101877)"; [ $s == 9 ] && CMD="send_command -local"
+; echo "${CYAN} cpprod_util FwIsPrimary ${NORM} Check if MDS is Primary (1: Yes, 0: No)"; [ $s == 10 ] && CMD="cpprod_util FwIsPrimary"
+; echo "${CYAN} cplic print -D ${NORM} Show DMS/CMA level licenses"; [ $s == 11 ] && CMD="cplic print -D"
+; echo "${WARN} mdsstop ${NORM} Stop entire Multi-Domain Server (MDS + all DMS)"; [ $s == 12 ] && CMD="mdsstop"
+; echo "${WARN} mdsstop -m ${NORM} Stop Multi-Domain Server at MDS level only (without DMS)"; [ $s == 13 ] && CMD="mdsstop -m"
+; echo "${ENAB} mdsstart ${NORM} Start entire Multi-Domain Server (MDS + all DMS)"; [ $s == 14 ] && CMD="mdsstart"
+; echo "${ENAB} mdsstart -s ${NORM} Sequentially start all DMS and finally the Multi-Domain Server (All DMS + MDS)"; [ $s == 15 ] && CMD="mdsstart -s"
+; echo "${ENAB} mdsstart -m ${NORM} Start Multi-Domain Server at MDS level only (without DMS)"; [ $s == 16 ] && CMD="mdsstart -m"
+; echo "${WARN} mdsstop_customer <DMS_ID or DMS_IP or DMS_Name> ${NORM} Stop specific DMS"
+; echo "${CYAN} mdsstart_customer <DMS_ID or DMS_IP or DMS_Name> ${NORM} Start specific DMS"
+	 ;;
+    9)	echo "  MAIN < ${ENAB}QOS TROUBLESHOOTING${NORM}"
+	echo
+; echo "${CYAN} fgate stat; fgate log stat ${NORM} Show QoS status"; [ $t == 1 ] && CMD="fgate stat; fgate log stat"
+	case `grep fgd50 /etc/cpshell/log_rotation.conf | wc -l` in 0)
+; echo "${CYAN} tail \$FGDIR/log/fgd.elg ${NORM} Show last 10 entries in QoS log"; [ $t == 2 ] && CMD="tail $FGDIR/log/fgd.elg" ;;
+	*)
+; echo "${CYAN} tail \$FGDIR/log/fgd50.elg ${NORM} Show last 10 entries in QoS log"; [ $t == 2 ] && CMD="tail $FGDIR/log/fgd50.elg" ;;
+	esac
+; echo "${WARN} fgate unload ${NORM} Uninstall QoS Policy from localhost"; [ $t == 3 ] && CMD="fgate unload"
+; echo "${ENAB} fgate fetch ${NORM} Retrieve QoS Policy that was last installed to localhost"; [ $t == 4 ] && CMD="fgate fetch"
+; echo "${ENAB} fgate fetch -f ${NORM} Retrieve QoS Policy from security management"; [ $t == 5 ] && CMD="fgate fetch -f"
+; echo "${WARN} fgate debug on ${NORM} Enable QoS debug mode"; [ $t == 6 ] && CMD="fgate debug on"
+; echo "${ENAB} fgate debug off ${NORM} Disable QoS debug mode"; [ $t == 7 ] && CMD="fgate debug off"
+; echo "${WARN} etmstop ${NORM} Stop QoS (FloodGate-1)"; [ $t == 8 ] && CMD="etmstop $ADD"
+; echo "${ENAB} etmstart ${NORM} Start QoS (FloodGate-1)"; [ $t == 9 ] && CMD="etmstart $ADD"
+	 ;;
+   10)	echo "  MAIN < ${ENAB}THREAT EMULATION${NORM}"
+	echo
+; echo "${CYAN} cpstat threat-emulation; cpstat threat-emulation -f update_status ${NORM} Show Threat-Emulation Status"; [ $u == 1 ] && CMD="cpstat threat-emulation; cpstat threat-emulation -f update_status; cpstat threat-emulation -f contract"
+; echo "${CYAN} cpstat threat-emulation -f file_type_stat_file_scanned ${NORM} Show Threat-Emulation Statistics, Scanned Files"; [ $u == 2 ] && CMD="cpstat threat-emulation -f file_type_stat_file_scanned"
+; echo "${CYAN} cpstat fw -f smtp ${NORM} Show SMTP status"; [ $u == 3 ] && CMD="cpstat fw -f smtp"
+; echo "${CYAN} tecli show downloads images ${NORM} Show current version of Threat Emulation Image"; [ $u == 4 ] && CMD="tecli show downloads images"
+; echo "${CYAN} tecli s s ${NORM} Show emulation statistics"; [ $u == 5 ] && CMD="tecli s s"
+; echo "${CYAN} tecli s e e ${NORM} Show running emulations and their states"; [ $u == 6 ] && CMD="tecli s e e"
+; echo "${CYAN} tecli s c i; tecli s c quo; tecli s c que ${NORM} Show information about ThreatCloud emulation"; [ $u == 7 ] && CMD="tecli s c i; tecli s c quo; tecli s c que"
+; echo "${CYAN} tecli s t m; tecli s t h; tecli s t d ${NORM} Show global file emulation throughput per minute | hour | day"; [ $u == 8 ] && CMD="echo; echo 'Global file throughput (TE+AV): '; tecli sh th m; tecli sh th h; tecli sh th d"
+; echo "${CYAN} /opt/postfix/usr/sbin/postqueue -c /opt/postfix/etc/postfix/ -p ${NORM} Show postfix email queue"; [ $u == 9 ] && CMD="/opt/postfix/usr/sbin/postqueue -c /opt/postfix/etc/postfix/ -p 2>/dev/null"
+	echo
+	echo "  -- Mail logs -----------------------------------------------------------------------------------"
+; echo "${CYAN} tail \$FWDIR/log/emaild.mta.elg ${NORM} Show last 10 entries in MTA log"; [ $u == 10 ] && CMD="tail $FWDIR/log/emaild.mta.elg"
+; echo "${CYAN} tail /var/log/maillog ${NORM} Show last 10 entries in maillog"; [ $u == 11 ] && CMD="tail /var/log/maillog"
+	echo
+	echo "  -- Postfix queue message distribution (sk109699) -----------------------------------------------"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape | head ${NORM} Show Postfix queue union of the incoming and active queues - sk109699"; [ $u == 12 ] && CMD="/opt/postfix/usr/sbin/cpqshape | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape incoming | head ${NORM} Show Postfix queue incoming statistics"; [ $u == 13 ] && CMD="/opt/postfix/usr/sbin/cpqshape incoming | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape active | head ${NORM} Show Postfix active queue recipient statistics"; [ $u == 14 ] && CMD="/opt/postfix/usr/sbin/cpqshape active | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s active | head ${NORM} Show Postfix active queue sender statistics"; [ $u == 15 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s active | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape hold | head ${NORM} Show Postfix hold queue recipient statistics"; [ $u == 16 ] && CMD="/opt/postfix/usr/sbin/cpqshape hold | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s hold | head ${NORM} Show Postfix hold queue sender statistics"; [ $u == 17 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s hold | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape deferred | head ${NORM} Show Postfix deferred queue recipient statistics"; [ $u == 18 ] && CMD="/opt/postfix/usr/sbin/cpqshape deferred | head"
+; echo "${CYAN} /opt/postfix/usr/sbin/cpqshape -s deferred | head ${NORM} Show Postfix deferred queue sender statistics"; [ $u == 19 ] && CMD="/opt/postfix/usr/sbin/cpqshape -s deferred | head"
+	 ;;
+   11)	echo "  MAIN < ${ENAB}THREAT EXTRACTION${NORM}"
+	echo
+; echo "${CYAN} cpstat scrub; cpstat scrub -f subscription_status ${NORM} Show Threat-Extraction Status"; [ $v == 1 ] && CMD="cpstat scrub; cpstat scrub -f subscription_status; cpstat scrub -f threat_extraction_statistics"
+; echo "${CYAN} scrub counters state ${NORM} Show Files & Mail Statistics"; [ $v == 2 ] && CMD="scrub counters state"
+; echo "${CYAN} scrub queues state ${NORM} Show information on Threat Extraction queues"; [ $v == 3 ] && CMD="scrub queues state"
+; echo "${CYAN} scrub bypass state ${NORM} Show Threat-Extraction Bypass Status"; [ $v == 4 ] && CMD="scrub bypass state"
+; echo "${WARN} scrub bypass on ${NORM} Suspend Threat Extraction by bypassing all files coming from MTA -> No files are cleaned!"; [ $v == 5 ] && CMD="scrub bypass on"
+; echo "${ENAB} scrub bypass off ${NORM} Enable Threat Extraction by disabling bypass"; [ $v == 6 ] && CMD="scrub bypass off"
+  esac

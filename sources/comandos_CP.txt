@@ -1,0 +1,1062 @@
+fw tab -t mob_session -t mob_mail_session -s -t cvpn_session
+
+para saber peak de licencias
+------------------------------------------------------------------
+ cpinfo -z -o cpinfo2015
+
+para generar cpinfo
+------------------------------------------------------------------
+
+show sip.sess_timer
+
+comando para el vega50 para declarar el tiempo de las llamadas.
+
+---------------------------------------------------------------------
+adlog a dc
+para ver si esta conectado al domain controller
+-----------------------------------------------_----------------------
+fw tab -t connections -s ! head -n ! grep limit
+
+para saber como esta la tabla de conexiones
+
+------------------------------------------------------------------
+
+fw tab -t connections -x
+Borra la tabla de conexiones
+
+----------------------------------------------------------------------
+fw ctl zdebug drop ! grep 
+
+para saber la razon del bloqueo
+----------------------------------------------------------------
+cpinfo -y all
+para mostrar que hotfix tiene instalado el equipo
+-------------------------------------------------------------
+esc - esc desde clish te muestra todo los comandos disponible en el equipo
+
+--------------------------------------------------------------
+para programa un script durante el arranque
+
+/etc/rc.local
+ojo: quitar el script o comando al terminar.
+
+-----------------------------------------------------------
+clusterPara exportar usuarios de management
+
+fwm dbexport -f usuarios.txt
+
+Para exportar los grupos de management
+
+fwm dbexport -g -f grupos.txt
+
+------------------------------------------------------
+Para levantar levantar el cluster
+clusterXP_admin up
+
+Para tumbar el cluster
+
+clusterXL_admin down
+-------------------------------------------------------
+
+
+tcpdump -e -n -i eth2.3 | grep 00:21:d8:cd:d4:ff
+
+
+tcpdump -n -i eth2.2 host 192.168.0.70 and host 192.168.1.6
+
+
+------------------------------------------------------------------
+
+contract_util mgmt
+
+para revisar descarga de contrato si se realizo.
+
+----------------------------------------------------------------------------------------------
+
+DHCP configuracion
+
+host Omar {
+
+      hardware ethernet 08:00:2b:4c:59:23;
+
+     fixed-address 192.168.1.222;
+
+   }
+
+host Jorge {
+      hardware ethernet 08:00:2b:4c:59:23;
+     fixed-address 192.168.1.222;
+   }
+host Dirk {
+      hardware ethernet 08:00:2b:4c:59:23;
+     fixed-address 192.168.1.222;
+   }
+ 
+
+ 
+
+Esto tienes que configurarlo en el archivo dhcpd.conf que esta ubicado en /etc/ 
+
+ 
+
+Ddespues de configurarlo tienes que reinicar el servicio de dhcp con este comando, /etc/init.d/dhcpd restart 
+
+Si no funciona, entonces le das disable y enable por la web GaiA 
+
+
+------------------------------------------------------------------------------------
+fw ctl zdebug -m fw + drop | grep '2010'
+
+para mostrar paquete dropeados por el equipo fw.
+
+---------------------------------------------------------------------
+para realizar export y import en gaia
+./migrate export "nombre de archivo"
+
+./migrate import "nombre de archivo"
+
+
+------------------------------------------------------------------
+Montar un Cdrom
+
+1. mkdir -p /mnt/cdrom
+2. mount /dev/scd0 /mnt/cdrom
+3. patch add cd
+
+--------------------------------------------------------------------
+Comando para configuracion de alertas smtp.
+
+internal_sendmail -s alert -t 1.1.1.100 -f checkpoint@solucionesseguras.com soporte@solucionesseguras.com
+
+
+internal_sendmail -s alert -t mail.solucionesseguras.com -f checkpoint@solucionesseguras.com jorge@solucionesseguras.com
+
+
+SNMP
+internal_snmp_trap 1.1.1.25
+
+sam_alert -I -t 600 -src
+
+--------------------------------------------------------------------
+Direccion a limpiar en caso de root lleno
+
+cd $CPDIR/tmp
+
+ls -S -s
+
+borrar todo lo que digan file.
+
+
+cd $FWDIR/tmp
+Borrar todos llos archivos. 
+
+OJO: para ambos casos tener cerrado el dashboard.
+--------------------------------------------------------------------
+netscomandos para procesos
+ps -aux
+--------------------------------------------------------------
+fw stat
+
+para ver el estado de la politicas.
+
+--------------------------------------------------------------
+para matar proceso
+kill "#de proceso" 
+--------------------------------------------------------------
+para levantar proceso
+"#de proceso"&
+--------------------------------------------------------------
+Para habilitar permiso para ssh y sftp o transferencia de equipos.
+
+chsh "Nombre de usuario"
+/bin/bash
+
+
+chsh "Nombre de usuario" -s /bin/bash
+
+--------------------------------------------------------------
+para ver status de los procesos
+top
+--------------------------------------------------------------
+para realizar backup
+backups
+--------------------------------------------------------------
+Para programar por comando el Backup hacia un SCP.
+
+backup --sched on 01:00 -w Monday --scp scp.solucionesseguras.com 4781 soluciones binal.tgz
+
+-----------------------------------------------------------------------------------------------
+Para programar por comando el Backup hacia un ftp server
+
+backup --sched on HH:MM -w "Dia" --ftp "ipdelserver" "Username" "Password" "Nombredelarchivo.tgz"
+
+--------------------------------------------------------------------------------------------------
+
+Comando para transferir a scp de soluciones.
+
+scp "nombre de Archivo" 4781@scp.solucionesseguras.com:/data1/home/4780/4781
+
+scp "nombre de Archivo" 4781@69.43.165.5:/data1/home/4780/4781
+
+--------------------------------------------------------------------------------------------------
+
+comando para transferir un archivo desde un FW a un FW scpserver.
+
+fwss#> scp baliado.tgz sseguras@64.x.x.x:/var/log/tmp/baliado.tgz    /parado en la carpeta de origen...
+password:
+
+requisito:
+debe existir el archivo SCPUSERS en el fw remoto.
+
+fwbaliado#> cd /etc
+fwbaliado#> echo sseguras>>scpusers
+fwbaliado#> cat scpusers
+sseguras
+fwbaliado#>
+
+-------------------------------------------------------------
+
+fw stat
+
+para saber que politica tiene isntalada.
+
+-------------------------------------------------------------
+para saber la configuracion de los backups
+backups -e  
+
+--------------------------------------------------------------
+Se utiza para jalar politicas de formas manual del smartcenter.
+
+fw fetch localhost
+
+fw fetch "ip de smartcenter"
+
+--------------------------------------------------------------
+backup con nombre personalizado
+
+backup -f nombre de archivo
+
+--------------------------------------------------------------
+Para Empezar el proceso de backups
+restore o restore 
+--------------------------------------------------------------
+
+netstat -an | grep 257
+
+con este comando sabrar a que ip esta mandando los logs, por ende el ip sera el de MGN.
+
+-------------------------------------------------------------
+para extraer backups de equipos
+
+var/CPbackups/backups
+se recomienda la extraccion de archivo con la version anterios de winscp por la nueva version presenta inconveniente.
+--------------------------------------------------------------
+Para ver y configurar las especificaciones de la tarjeta 
+ehttool "interfaz".
+--------------------------------------------------------------
+se utiliza para indentificar la tarjeta mediante parpadeo de las luces.
+ehttool -p "interfaz"
+--------------------------------------------------------------
+para ver la informacion de la interfaz
+ifconfig
+--------------------------------------------------------------
+para acceder al menu de configuracion del equipo
+sysconfig
+--------------------------------------------------------------
+para entrar a menu de configuraciones opcional como el gui, certificado para ver licencia etc
+cpconfig
+--------------------------------------------------------------
+para ver cptodas la tarjetas instaladas
+ifconfig -a
+--------------------------------------------------------------
+para ver la cantidad de espacio en las diferente
+df -kh
+--------------------------------------------------------------
+Nota: los backups de un CP FW open server no funciona en un apliance UTM-1.
+
+cd $FWDIR
+Te dirige a la carpeta /opt/
+--------------------------------------------------------------
+para ver archivo
+More "nombre de archivo"
+
+scp backup.tgz usuario@servidor: directorio
+ --------------------------------------------------------------
+los backups es los appliance esta localizados en la siguiente direccion
+
+/var/logs/cpbackups/ngxr65 o 71 dependiendo de la version
+
+el dhcpd.congf esta localizado en la siguiente direccion
+/etc
+
+-----------------------------------------------------------------------------------------
+
+Direccion donde se encuentran los logs
+cd $FWDIR/logs
+
+-----------------------------------------------------------------------------------------
+Archivo para verificar estatus de upgrade o en caso que 
+
+/var/log archivo cpupgrade.elg
+-----------------------------------------------------------------------------------------
+
+
+----------------------------------------------------------------------------------------
+
+cphaprob stat
+se utiliza para saber el status de los clusters
+
+-----------------------------------------------------------------------------------------
+
+cphaprob -a if
+para saber la ip virtuales de un cluster.
+
+-----------------------------------------------------------------------------------------
+
+alto a los servicios de HA.
+cphastop
+-----------------------------------------------------------------------------------------
+
+Inicio de los servicios de HA.
+cphastart
+
+-----------------------------------------------------------------------------------------
+comando para snifiear las tarjeta
+tcpdump -i ethx host x.x.x.x and port xx -n
+
+
+-----------------------------------------------------------------------------------------
+Comandos para ver el trafico encrytado u desincriptado
+
+fw monitor -e 'accept src=1.1.1.97 or dst=1.1.1.97;'
+
+
+-----------------------------------------------------------------------------------------
+
+puertos que utiliza el dashboard
+18190
+18191
+18192
+
+
+
+-----------------------------------------------------------------------------------------
+ls -kh 
+ls -sh
+ls -lh -
+find / -type f -size +20000k -exec ls -lh {} \; | awk '{ print $9 ": " $5 }'
+
+dentro de una carpeta pueden listar los objetos por tamaño con du –lh
+
+Para Buscar Archivos mayores de 20MB
+
+-----------------------------------------------------------------------------------------
+Busqueda de archivos para borrar del root
+
+$CDDIR/tmp
+$FWDIR/tmp
+al momento de borrar archivos de esta carpeta, asegurarse que no tenga el dashboard abierto.
+
+correr comandos para rastrear archivos a borrar en el root.
+
+
+du -h --max-depth=1 
+
+ls -lh    muestra el peso de la carpeta o archivo donde este ubicado.
+
+du -h  muestra el p/tmpeso de la carpeta
+
+
+
+-----------------------------------------------------------------------------------------
+fw ctl arp
+para observar el ip que esta publicando el FW. 
+-----------------------------------------------------------------------------------------
+fw ctl pstat 
+para ver el status de equipo.
+
+-----------------------------------------------------------------------------------------
+chmod 7777 "nombre del archivo ejecutable"
+se utiliza para dar permiso de read/write para que ejecute.
+
+-----------------------------------------------------------------------------------------
+
+Se utiliza para que la sesion no se autologuue.
+
+-----------------------------------------------------------------------------------------
+
+tar -xvzf *nombre del archivo*.
+para descomprimir archivo.
+-----------------------------------------------------------------------------------------
+
+SMP(security Management Portal): Programa que se utiliza para la administracion de N safe remotamente
+
+-----------------------------------------------------------------------------------------
+procedimiento para ver los cores
+top; 1; i
+
+
+-----------------------------------------------------------------------------------------
+Para editar archivo local.arp
+cd $FWDIR/conf
+echo x.x.x.x AA:BB:CC:DD:EE:FF:GG>>local.arp.2
+echo x.x.x.1 AA:BB:CC:DD:EE:FF:GG>>local.arp.2
+echo x.x.x.2 AA:BB:CC:DD:EE:FF:GG>>local.arp.2
+echo x.x.x.3 AA:BB:CC:DD:EE:FF:GG>>local.arp.2
+echo x.x.x.4 AA:BB:CC:DD:EE:FF:GG>>local.arp.2
+
+cat o more local.arp.2
+
+mv local.arp local.arp.original
+mv local.arp.2 local.arp
+
+-----------------------------------------------------------------------------------------
+cat > local.arp
+para crear archivos por comnados.
+
+Ctrl+D para salir del editor.
+
+-----------------------------------------------------------------------------------------
+
+webui enable 4434
+para habilitar el web gui por el 4434
+
+
+-----------------------------------------------------------------------------------------
+cuando el smarthdasboard no quiere abrir
+
+-----------------------------------------------------------------------------------------
+
+son 3 pasos...
+1. ver cual es el ProcessID de fwm, con el comando:
+ps -aux | grep fwm
+miras para fwm cual es el "pid"
+digamos que aparece 4458
+2. matar el proceso fwm
+kill 4458
+si no quiere cerrar, le das
+kill -9 4458
+3. iniciar fwm:
+fwm&
+
+Kill -9 process;cpstop;cpstart
+
+-----------------------------------------------------------------------------------------
+cpwd_admin list
+
+
+-----------------------------------------------------------------------------------------
+
+http://10.200.0.68:8000/cgi-mod/support-tunnel.cgi
+
+
+-----------------------------------------------------------------------------------------
+cplic print
+Se utiliza para ver las licencia que tiene configurado el FW
+
+-----------------------------------------------------------------------------------------
+cpd trancado
+se debe realizar cpstop y cpstart para normalizar
+En caso que no funcione reboot.
+
+-----------------------------------------------------------------------------------------
+para traspasar la rutas de un fw a otros dirigirte a 
+
+etc/sysconfig
+
+copiar todo los archivo netconf
+
+
+-----------------------------------------------------------------------------------------
+bloquear msn son
+
+Puertos
+1863
+80
+y activar la proteccion smart defense = messenger
+
+-----------------------------------------------------------------------------------------
+
+ln -s /var/log/tmp/export /opt/CPsuite-R75.20/fw1/tmp/migrate
+
+Donde /opt/CPsuite-R75.20/fw1/tmp/migrate es la carpeta original donde se van guardando los archivos para hacer el export. Si la capeta existe vas a esa localidad y la renombras migrateold.
+Luego crear una capeta /var/log/tmp/export u otro nombre pero debe ser en /var/log
+El comando se ejecuta en /opt/CPsuite-R75.20/fw1/tmp/
+
+-----------------------------------------------------------------------------------------
+En caso que el ssl extender no responda con internet explorer, ni ningun explorador y en otro lugar si responde o a veces solamente responde por firefox.
+ y se tiene la actualizacion de windows KB2585542.
+
+realizar el siguiente workarrounds.
+
+
+Enable RC4 (or AES on newer versions) as an optional encryption algorithm for SSL Network Extender (SNX): 
+
+Global Properties -> Remote Access -> SSL Network Extender -> Encryption -> Supported encryption methods: "3DES or RC4" or "AES, 3DES or RC4" (depand on the version)
+
+
+-----------------------------------------------------------------------------------------
+agregar rutas por linea de comando
+
+add route -net x.x.x.x/xx  
+
+salvar las rutas agregadas
+
+save_route --save  
+
+----------------------------------------------------------------------------------------
+Cambio de IP
+
+ifconfig eth0 192.168.0.10 netmask 255.255.255.0 
+
+-----------------------------------------------------------------------------------------
+
+---------------------------------------------
+Magic MAC
+---------------------------------------------
+
+fw ctl get int fwha_mac_magic - obtener el magic mac
+fw ctl get int fwha_mac_forward_magic - obtener el forward magic mac
+
+fw ctl set int fwha_mac_magic 0000 - cambiar el mac magic
+fw ctl set int fwha_mac_forward_magic 0000 - cambiar el forward mac magic
+
+$FWDIR/boot/modules - direción donde se encuentra fwkern.conf
+
+si no está, crearlo cat > fwkern.conf
+
+Introducir y luego reboot
+
+fwha_mac_magic=0000 (número hexadesimal)
+fwha_mac_forward_magic=0000 (numero hexadecimal)
+
+Salir Ctrl D
+
+
+----------------------------------------------------------------------------------------------
+
+
+Listar todos los archivos (excepto los ocultos) del directorio actual, en formato detallado.
+ls -l
+-----------------------------------------------------------------------------------------
+
+Listar los archivos del directorio actual, indicando el tipo de archivo.
+ls -F
+-----------------------------------------------------------------------------------------
+
+Listar todos los archivos (incluyendo los ocultos) del directorio actual, en formato detallado y presentarlo en columnas.
+ls -laC
+-----------------------------------------------------------------------------------------
+
+Borrar el archivo o directorio denominado "fichero"
+rm fichero
+-----------------------------------------------------------------------------------------
+
+Borrar el directorio denominado "directorio", incluyendo todos sus archivos y subdirectorios.
+rm -rf directorio
+-----------------------------------------------------------------------------------------
+
+Copiar el archivo o directorio denominado "fichero" al directorio "/home/datos".
+cp fichero /home/datos/
+-----------------------------------------------------------------------------------------
+
+Mover el archivo o directorio denominado "fichero" al directorio "/home/datos".
+mv fichero /home/datos/
+-----------------------------------------------------------------------------------------
+
+Visualizar el archivo denominado "archivo".
+cat archivo
+-----------------------------------------------------------------------------------------
+
+Visualizar todas las paginas de mantenimiento que contienen la palabra "palabraclave".
+man -k palabraclave
+-----------------------------------------------------------------------------------------
+
+Visualizar el archivo denominado "archivo", una página a la vez. Para avanzar a la siguiente página se debe presionar la barra espaciadora.
+more archivo
+-----------------------------------------------------------------------------------------
+
+Visualizar las 10 primeras líneas del archivo denominado "archivo".
+head archivo
+-----------------------------------------------------------------------------------------
+
+Visualizar las 20 primeras líneas del archivo denominado "archivo".
+head -20 archivo
+-----------------------------------------------------------------------------------------
+
+Visualizar las 10 últimas líneas del archivo denominado "archivo".
+tail archivo
+-----------------------------------------------------------------------------------------
+
+Visualizar las 20 últimas líneas del archivo denominado "archivo".
+tail -20 archivo
+
+-----------------------------------------------------------------------------------------
+
+
+Ensa
+
+Ya arregle ENSA, Ya se ve la pagina web y mail me imagino que el connectra también… esperen… conectra también… asi que todo tiene que estar funcionando. 
+
+Recuerden que dije que NO SE PUEDE UTILIZAR en R75 IPs Secundarias… tiene que estar configurado en en local.arp y para que todo funcione, 
+hay que instalar políticas. 
+
+Lo síntomas de este problema, es que en el tracker no se ve hacer el NAT al servidor de la red interna. Esto ocurre en R75. 
+------------------------------------------------------------------------------------------
+BARRACUDA SUPPORT TUNEL
+
+efaskha_sseguras
+BN13579sup19
+
+https://support10.barracuda.com
+
+
+
+------------------------------------------------------------------------------------------
+Para momitores a un nivel mas bajo porque el paquete es bloqueado.
+------------------------------------------------------------------------------------------
+Solution 
+ 
+To check why traffic is being silently dropped by a firewall simultaneously run the following 2 commands:
+1. FW MONITOR to gather all traffic between Host A and Host B. The syntax would be:
+
+fw monitor -e "accept src=n.n.n.n or dst=x.x.x.x or src=y.y.y.y or dst=y.y.y.y;" -o fwmon.cap &
+
+where n.n.n.n is the IP address of Host A and y.y.y.y is the ip address of Host B. The '&' sign will put fw monitor in the background.
+
+2. Start the kernel debugging for drop activities:
+
+fw ctl zdebug drop > fwctl.txt 
+
+Now replicate the problem to gather the debugs. 
+
+When finished, press Ctrl+C to break the 'fw ctl zdebug' command and then type 'fg' to bring back the 'fw monitor' to the foreground.
+
+Enter Ctrl+C again to cancel the fw monitor.
+
+Analyse the output files: fwmon.cap and fwctl.txt to determine what is being dropped and the reason why it is being dropped.
+
+syntaxys de fw monitor
+
+fw monitor -e 'accept src=201.225.48.68 or dst=201.225.48.68 and dport=18190;' -o test.cap &
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+
+
+
+Comandos de Tippint point
+
+comandos para apagar los Tipping point
+halt now
+
+Procedimiento para cambiar credenciales de diferentes 
+
+Linux:
+                Via CLI: el comando para cambiar la contraseña es /usr/bin/passwd usuario
+                Esto mismo se puede hacer por la via WEB y aparecerá la lista de usuario y se cambia la contraseña 
+
+Linux Experto:
+                Una vez logeado como experto se corre el siguiente comando: /usr/bin/passwd y pedirá actualizar el password. 
+
+Dashboard:
+                Los administradores de Dashboard se cambian dentro de la misma aplicación, una vez adentro, se busca la lista de administradores y se borran/editan/crean.
+
+
+
+
+------------------------------------------------------------------------------------------
+Bloqueo de Facebook en Barracuda Web Filter.
+
+Para poder bloquear HTTPS a travez del barracuda Webfilter, tiene que activar una opcion que por default viene desactivada.
+Vaya al menu Bloquear/Aceptar --> Configuracion --> HTTPS Filtering
+Esta opcion debe colocarla en ON, y el equipo procedera a bloquear dicha pagina.
+Hay que tener en claro que las paginas de bloqueo no se despliegan en esta situacion, solamente muestra que la pagina no puede ser mostrada
+Le adjunto un screenshot en caso tal que tenga alguna duda
+
+
+
+-----------------------------------------------------------------------------------------
+Requisito para un enlace vpn sitio a sitio.
+
+
+Ambos necesitan definir y compartirse lo siguiente:
+
+1. Marca/Modelo e IP público de los FW
+2. Redes/máscaras internas de ambos sitios que pertenecerán al VPN
+3. clave compartida.
+
+4. métodos de cifrado (adjunto configuración recomendada)
+4.1 Fase1
+-Cifrado y verificación: AES256/SHA1
+-Diffie-Hellman group: Grupo2 (1024 bit)
+-Renegociación IKE: 1440 minutos (86400 seg)
+-AggressiveMode: NO
+4.2 Fase2
+-Cifrado y verificación: AES128/MD5
+-PFS (perfect forward secrecy): NO
+-Renegotiación IPsec cada: 3600 seg
+-IP Compression: NO
+
+5. IP para hacer pruebas (ping, http, etc.)
+
+-----------------------------------------------------------------------------------------
+To download the Service Contract File:
+
+1. Log into http://usercenter.checkpoint.com
+2. Click on the "Support" tab
+3. Click on the "Additional Services" sub-tab
+4. In the section titled "Service Contract File Download", select the Account(s) you need your Service Contract File for
+5. Select "Email File" or "Download Now"
+
+To install the Service Contract File via SmartUpdate:
+
+1. Log into SmartUpdate
+2. From the menu , select "Licenses & Contracts", select "Update Contract > Import File"
+3. Browse to the directory where the file is located and click "Open" 
+4. The file will be added to the respective certificate key 
+5. You can verify the file installed properly by running CPLIC PRINT from a command line on each object 
+
+For additional information and assistance with downloading and installing your Service Contract File, please refer to SecureKnowledge document SK33089.
+
+If you are unable to install the Service Contract File using SmartUpdate, the file can be installed via command line directly on your servers:
+
+1. Save the Service Contract File locally onto each gateway
+2. On each server, run the command "cplic contract put -o <file name>.xml"
+
+To verify if the file was successfully installed, run "cplic print" on the command line.
+
+
+
+-----------------------------------------------------------------------------------------
+718-493-195
+
+
+-----------------------------------------------------------------------------------------
+Procesos TFTP para los Safes
+
+Please follow this procedure to upgrade the backup firmware of your device: 
+Save the configuration file: 
+
+1. Log into my.firewall 
+2. Click the setup button on the left menu. 
+3. Click on tools in the top menu. 
+4. Click on the export button. 
+5. Save the file onto your desktop. 
+6. Please check that the file size is > 25 kb, if it is not please do not proceed and contact us. 
+
+Activate the TFTP server on the appliance by following these steps: 
+
+1. Unplug the power cord. 
+2. Using a pointed object, press the RESET button on the back of the VPN-1 Edge/Safe@Office appliance steadily while plugging in the power cord. 
+3. Keep pressing the RESET button a few seconds until the PWR/SEC LED lights steadily in red. 
+
+Configuring the TFTP client: 
+
+1. Use a standard Ethernet cable to connect a computer to one of the LAN ports of the appliance. 
+2. Configure the computer to use any fixed IP address in the range 192.168.10.2 - 192.168.10.254. Set the subnet mask to 255.255.255.0. 
+3. If SecuRemote is installed on your PC, disable it. 
+4. In case you are using the Windows 2000/XP embedded TFTP client, type the following command on the Windows command prompt: tftp -i 192.168.10.1 put file.tftp 
+5. The appliance will store the firmware file and automatically restart. 
+6. Allow the VPN-1 Edge/Safe@Office appliance to boot-up until the system is ready (PWR/SEC LED flashes slowly or illuminates steadily in green light). 
+
+Importing the configuration file: 
+1. Log into my.firewall 
+2. Click the setup button on the left menu. 
+3. Click on tools in the top menu. 
+4. Click on the import button. 
+5. Select the file from your desktop. 
+6. Allow the VPN-1 Edge/Safe@Office appliance to load the new configuration. 
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Importar certificado con cadenas (thawte) para MobileAccess R75.20
+
+Aquí les envío el apunte de lo que hice para poder utilizar el certificado en mobileaccess.
+En los emails estará más seguro que en mi pc:
+
+
+
+1. Requisitos:
+   - Certificado en formato PKCS #7 (PKCS.txt)
+   - llave privada (ej. server.key)
+   
+2. Verificar y modificar, que los límites de PKCS.txt sean:
+-----BEGIN PKCS7-----
+-----END PKCS7-----
+y NO algo como Thawte coloca por default:
+-----BEGIN PKCS #7 SIGNED DATA-----
+-----END PKCS #7 SIGNED DATA-----
+
+//----Los siguientes pasos son hechos en el Gateway
+3. cargar al Gateway en $CVPNDIR/var/ssl/
+    - PKCS.txt y server.key
+
+4. Convertir el PKCS7 a PEM (crt)
+[Expert@fwmobile]# cpopenssl pkcs7 -in PKCS.txt -print_certs -out certs.crt
+
+"certs.crt" Contiene varios certificados: el del servidor y los intermediarios del CA.
+
+5. Convertir el PEM(crt) a PKCS12 (p12) (-name Debe ser el Nombre del certificado o commonName)
+[Expert@fwmobile]# cpopenssl pkcs12 -export -in certs.crt -out serverP12.p12 -inkey server.key -name "portal.bladex.com"
+Enter Export Password: {nueva clave para el .p12 a crear}
+Verifying - Enter Export Password: {nueva clave para el .p12 a crear}
+
+6. Descargar ServerP12.p12 al escritorio (para cargarlo luego con el dashboard)
+
+7. Dentro de {Gateway}$CVPNDIR/var/ssl/, renombrar de certs.crt a server.crt
+
+///////////////---- NOTA
+Si se tiene más de un gateway, en este punto se debe proceder a copiar $CVPNDIR/var/ssl/server.crt en cada uno.
+El nombre (server.crt) es Mandatorio!.
+///////////////---- 
+
+8. Desde el dashboard, crear un TrustedCA con el certificado root del proveedor. Debe pregunarse al CA cual es el que necesita usar.
+En el caso con Thawte es uno llamado:   “Thawte SSL CA Root Certificate”
+
+9. Desde el dashboard ir a: GWProperties > MobileAccess > PortalSettings. Importar certificado (ServerP12.p12)
+Usar el password colocado en el paso 5.
+IMPORTANTE! Una vez importado. No presionar el botón (VIEW) como este archivo contiene múltiples certificados, causará un error en el dashboard y lo cerrará.
+
+10. Instalar política
+
+//---- Siguiente paso en el Smartcenter
+
+11. Desde el smartcenter firmar los certificados remotos (esto firmará lo que está en server.crt de cada gateway)
+[Expert@mgnt]# certificate_signing_utility -upgrade
+All GWs IPs successfully collected
+about to sign certificates on 3 gateways.
+
+> signing 192.168.194.214 ........SUCCESSFUL
+> signing 192.168.193.215 ........SUCCESSFUL
+> signing 192.168.193.214 ........SUCCESSFUL
+
+signing certificate procedure summary:
+--------------------------------------
+   gateways that were successfully signed (3):
+       192.168.194.214
+       192.168.193.215
+       192.168.193.214
+   gateways that failed during the sign procedure (0):
+       NONE
+
+[Expert@mgnt]#
+
+
+12. Finalmente Reiniciar los servicios de VPN en cada Gateway:
+
+[Expert@fwmobile]# cvpnrestart
+Portal stopped
+Mobile Access: Successfully stopped Mobile Access services
+Mobile Access: Starting dbwriter service
+Mobile Access: Starting cvpn service
+Mobile Access: Starting cvpnproc Server
+Mobile Access: Starting MoveFileServer Server
+Mobile Access: Starting UserMonitor Server
+Mobile Access: Successfully started Mobile Access services.
+[Expert@fwmobile]#
+
+13. Borrar cualquier cache de explorador y abrir el portal normalmente. No debe presentar el warning.
+
+FIN
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+How to determine the UTM-1/Power-1 model number from the CLI
+----------------------------------------------------------
+
+Solution ID:                        sk37692
+Product:                              UTM-1, Power-1
+Version:                              NGX R65 w/ Messaging Security, R70
+Last Modified:                  02-abr-2009
+                
+Did this solution solve your problem?
+                                                                                              [Click on the stars to rate]
+Solution
+To determine the exact model number of your UTM-1/Power-1 appliance from the CLI, follow these steps:
+
+   1. Log in to the UTM-1/Power-1 CLI.
+
+   2. Run the command:
+      /usr/sbin/dmidecode
+
+   3. Find the line:
+      Handle 0x0001
+
+   4. Under 'Handle 0x0001', you will find the 'Product Name' field. Use the below table to match the name shown in this field to the appliance model.
+
+      Appliance Model       Product Name
+      Power-1 9070 Appliance        P-20-00
+      Power-1 5070 Appliance        P-10-00
+      UTM-1 3070 Appliance           U-40-00
+      UTM-1 2070 Appliance           U-30-00
+      UTM-1 1070 Appliance           U-20-00
+      UTM-1 570 Appliance              U-15-00
+      UTM-1 270 Appliance              U-10-00
+      UTM-1 2050 Appliance           C6P_UTM
+      UTM-1 1050 Appliance           C6_UTM
+      UTM-1 450 Appliance              C2_UTM
+
+Realmente es cd /usr/sbin y luego desde el prompt dmidecode si lo corren en el 130 dice  Product Name: U-5-00
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+Barracuda Passwords BIOS
+
+BIOS PASSWORDS;
+BIOS PW: 322232 32232 BCNDK1 ADMINBN99
+DEFAULT PASSWORD (GUI) admin or adminbn99
+RAID PASSWORD 0000
+
+---------------------------------------------------------------------
+como saber los modelos por comandos en los nuevos equipos
+
+To determine the exact model number of Check Point appliance from the CLI, follow these steps:
+1.	Log in to the CLI into Expert mode. 
+
+2.	Run the command:
+
+[Expert@HostName]# /usr/sbin/dmidecode -s system-product-name 
+Note: Some versions of 'dmidecode' command do not support the '-s system-product-name' DMI string (just run the 'dmidecode -s' command to see the supported DMI strings).
+In such case, the user will receive the error "-s: No such file or directory".
+Follow these steps:
+A.	Run the command:
+[Expert@HostName]# /usr/sbin/dmidecode 
+B.	Find the line:
+Handle 0x0001 
+C.	Under 'Handle 0x0001', you will find the 'Product Name' field. 
+3.	Use the table below to match the name shown in this field to the appliance model:
+Appliance Model	Product Name	Class
+Check Point Threat Emulation modelsCheck Point TE1000	P-231	Pireus
+Check Point TE250	T-181	Toxotai
+Check Point 21000 modelsCheck Point 21700	G-72	Grizzly
+Check Point 21600
+G-70	Grizzly
+Check Point 21400	G-50	Grizzly
+Check Point 13000 models
+Check Point 13500
+P-370	Prometheus
+Check Point 12000 modelsCheck Point 12600	P-230	Pireus
+Check Point 12400	P-220	Pireus
+Check Point 12200	P-210	Pireus
+Check Point 4000 modelsCheck Point 4800	T-180	Toxotai
+Check Point 4600	T-160	Toxotai
+Check Point 4400	T-140	Toxotai
+Check Point 4200	T-120	Toxotai
+Check Point 2000 modelsCheck Point 2200
+T-110	Toxotai
+Power-1 models
+Power-1 11xxx	P-30-00	Hoverfly
+Power-1 90xx	P-20-00	Dragonfly
+Power-1 507x	P-10-00	Dragonfly
+UTM-1 models
+UTM-1 307x	U-40-00	Dragonfly
+UTM-1 207x	U-30-00	Dragonfly
+UTM-1 205x	C6P_UTM	Doda
+UTM-1 107x	U-20-00	Dragonfly
+UTM-1 105x	C6_UTM	Doda
+UTM-1 57x	U-15-00	Dragonfly
+UTM-1 450	C2_UTM	Doda
+UTM-1 27x	U-10-00	Dragonfly
+UTM-1 130	U-5-00	Butterfly
+VSX-1 models
+VSX-1 11000 Series	P-30	Hoverfly
+VSX-1 907x	P-20	Dragonfly
+VSX-1 307x	U-40	Dragonfly
+Smart-1 models
+Smart-1 150	S-40	Stonefly
+Smart-1 50	S-30	Stonefly
+Smart-1 25B	S-21	Scorpio
+Smart-1 25	S-20	Stonefly
+Smart-1 5	S-10	Stonefly
+Smart-1 307x	U-40	Damselfly
+Series 80 models
+Check Point 600 appliance
+Check Point 1100 applianceSecurity Gateway 80	L-50	London
+Check Point 600
+Check Point 1100	L-50	Seattle
+Connectra
+Connectra 907x	P-20	Dragonfly
+Connectra 307x	U-40	Dragonfly
+Connectra 270	U-10	Dragonfly
+IPS-1
+IPS-1 9076	P-21	---
+IPS-1 5076	P-11	---
+IPS-1 2076	U-31	---
+-+--------------------------------------------------------------------
+
+Extraer de 680 1180 por scp y cambiar el usuario a expert
+
+
+Solo como conocimiento general..
+
+Para cambiar el shell de usuario en un 1100 y en los serie 80 y pudan loggearse en expert para usar WinSCP
+
+El comando es bashUser on. Y para usar WinSCP, hay que colocar que es SCP y no SFTP…ya que no es compatible el SFTP con los 1100 ni los 80
+
+
+Otra cosa, la forma de hacer debug de vpn en los 11 es diferente
+
+Se usa vpn debug on TDERROR_ALL_ALL=5' command to increase the level of debugging information
+
+O vpn debug ike on
+
+Y se buscarian $FWDIR/conf/sfwd.elgffw
+
+$FWDIR/conf/ike.elg file
+
+---------------------------------------------------------------------------------------------------------
+direccion RMA
+
+Street:clayton ciudad del saber building 237 floor 2 
+City:panama 
+State/Province:panama 
+Country:panama 
+Zip/Postal Code:0000
+Telephone:5073171312
+
+----------------------------------------------------------------------------------
+
+
+fw ctl set int fwha_forw_packet_to_not_active 1
+
+-------------------------------------------------------------------------------
+vpn debug trunc
+
+vpn debug off
+
+vpn debug ikeoff
+
+
+bashUser on
+para habilitar al usuario como Bash
+
+----------------------------------------------------------
+desbloquear todos los usuarios admin 
+
+fwm lock_admin -ua
+-----------------------------------------------------------
+
+du -h --max-depth=1 /opt | sort -n -r
+
+ver en gb almacenaje
+
+-----------------------------------------------------------
+activar la aceleracion yl QoS en el FW
+
+cpprod_util CPPROD_SetValue FG1 FgWithAcceleration 1 1 1
+------------------------------------------------------------
+revisar desconexiones por interfaz
+[Expert@kefren:0]# ifconfig eth2
+eth2        Link encap:Ethernet  HWaddr 00:1C:7F:81:CF:BF
+            inet addr:192.168.100.1  Bcast:192.168.100.255  Mask:255.255.255.0
+            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+            RX packets:4220123408 errors:0 dropped:0 overruns:0 frame:0
+            TX packets:6290647881 errors:0 dropped:0 overruns:0 carrier:0
+            collisions:0 txqueuelen:1000
+            RX bytes:862679611708 (803.4 GiB)  TX bytes:7047829934994 (6.4 TiB)
+revisar valores de errores y dropped 
+perdida de paquetes o de sesiones 
+-----------------------------------------------------------------
+

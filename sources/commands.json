@@ -1,0 +1,377 @@
+[
+  {
+    "command" : "cpconfig",
+    "comment" : "change SIC, licenses and more",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpview -t ",
+    "comment" : "show top style performance counters ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpview",
+    "comment" : "Start CPview",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaprob -a if ",
+    "comment" : "display status of monitored interfaces in a cluster ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaprob -l list ",
+    "comment" : "display registered cluster devices and status ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaprob syncstat ",
+    "comment" : "display sync transport layer statistics ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaprob ldstat ",
+    "comment" : "display sync serialization statistics ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphastop",
+    "comment" : "stop a cluster member from passing traffic. Stops synchronization. (emergency only) ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "clusterXL_admin down –p",
+    "comment" : "disable this node from cluster membership",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaconf cluster_id get ",
+    "comment" : "get cluster Global ID membership",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cphaconf set_ccp broadcast/multicast ",
+    "comment" : "set cluster mode ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cplic print",
+    "comment" : "license information",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstart",
+    "comment" : "start all checkpoint services ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat fw",
+    "comment" : "show policy name, policy install time and interface table ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat ha ",
+    "comment" : "high availability state",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat blades ",
+    "comment" : "top rule hits and amount of connections ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f all ",
+    "comment" : "checkpoint interface table, routing table, version, memory status, cpu load, disk space",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f cpu ",
+    "comment" : "checkpoint cpu status ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f multi_cpu",
+    "comment" : "checkpoint cpu load distribution",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f sensors",
+    "comment" : "hardware environment (temperature/fan/voltage)",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f routing",
+    "comment" : "checkpoint routing table",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat mg -f log_server",
+    "comment" : "monitor log servers performance (events/sec) ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstop",
+    "comment" : "stop all checkpoint services",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpwd_admin monitor_list",
+    "comment" : "list processes actively monitored. Firewall should contain cpd and vpnd.",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "show sysenv all",
+    "comment" : "show hardware sensors (fans,power supply,temp,volt) ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "show asset all ",
+    "comment" : "show serial numbers and hardware info ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "show route destination xx.xx.xx.xx ",
+    "comment" : "show routing for specific host ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "ip route get xx.xx.xx.xx ",
+    "comment" : "show routing for specific host ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "iclid / show cluster state",
+    "comment" : "show cluster fail over history ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "promote_util",
+    "comment" : "promote the Secondary Management server to become the Primary server ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cp_conf sic init key123 norestart ",
+    "comment" : "reset SIC without restarting the firewall process ",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "fw ver",
+    "comment" : "firewall version",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw ctl iflist ",
+    "comment" : "show interface names",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw ctl pstat ",
+    "comment" : "show control kernel memory and connections ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fwaccel stat",
+    "comment" : "show SecureXL status",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw fetch <manager IP>",
+    "comment" : "get the policy from the firewall manager ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fwm load <policy name> <gateway name>",
+    "comment" : "compile and install a policy on the target's gateways",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw getifs",
+    "comment" : "list interfaces and IP addresses",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw log",
+    "comment" : "show the content of the connections log",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw log -b 'MMM DD, YYYY HH:MM:SS' 'MMM DD, YYYY HH:MM:SS'",
+    "comment" : "search the current log for activity between specific times ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw log -c drop",
+    "comment" : "search for dropped packets in the active log; also can use accept or reject to search",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw log -f ",
+    "comment" : "tail the current log",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fwm logexport -i <log name> -o <output name> -n -p",
+    "comment" : "export an old log file on the firewall manager ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw logswitch",
+    "comment" : "rotate logs",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw lslogs ",
+    "comment" : "list firewall logs ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw stat",
+    "comment" : "firewall status, should contain the name of the policy and the relevant interfaces.",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw stat -l ",
+    "comment" : "show which policy is associated with which interface and package drop, accept and reject ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw tab ",
+    "comment" : "displays firewall tables",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw tab -s -t connections",
+    "comment" : "number of connections in state table",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw tab -f -t vpn_routing -u",
+    "comment" : "routing for remote vpns",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw tab -s -t userc_users",
+    "comment" : "number of remote users connected (VPN) ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw tab -t xlate -x",
+    "comment" : "clear all translated entries",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw unloadlocal ",
+    "comment" : " clear local firewall policy ",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw monitor -e 'accept host(10.1.1.10);'",
+    "comment" : "trace the packet flow to/from the specified host",
+    "category" : "firewall"
+  },
+  {
+    "command" : "fw ctl zdebug + drop | grep 'x.x.x.x\|y.y.y.y' ",
+    "comment" : "Check reason of your packet being dropped",
+    "category" : "firewall"
+  },
+  {
+    "command" : "cat /etc/cp-release; cpinfo -y all 2>/dev/null | grep JUMBO | tail -n1",
+    "comment" : "Show Check Point version",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "clish -c \'show installer status build\'",
+    "comment" : "Show CPUSE build number",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cplic print -x | more; cpstat os -f licensing | more",
+    "comment" : "Show installed CP licenses",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpvinfo $DADIR/bin/DAService | grep -E 'Build|Minor'",
+    "comment" : "Show CPUSE build",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "df -h",
+    "comment" : "Show available disk space",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpstat os -f cpu; cpstat os -f memory",
+    "comment" : "Show CPU and memory statistics",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "clish -c \'show configuration\' | more",
+    "comment" : "Show running Clish configuration",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "enabled_blades",
+    "comment" : "Show enabled blades",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpwd_admin list",
+    "comment" : "Show CP process status",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "cpinfo -y all | more",
+    "comment" : "Show installed packages & Jumbo Hotfix Take",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "echo; cpopenssl ciphers -v '$(grep SSLCipherSuite /web/templates/httpd-ssl.conf.templ | awk '{print $2}')' | grep -i tls | awk '{print \$2}' | sort --unique",
+    "comment" : "Show TLS version used by GAiA Portal - sk163542",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "last -20 -x",
+    "comment" : "Show last 20 logins by name",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "last -20 -w",
+    "comment" : "Show last 20 logins by name 2",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "last -20 -i",
+    "comment" : "Show last 20 logins by IP",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "ntpstat",
+    "comment" : "Show NTP status",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "ntpq",
+    "comment" : "Open NTP query utility",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "ls -lA /var/log/dump/usermode/",
+    "comment" : "Show core dumps",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "ls -lA /var/log/crash/",
+    "comment" : "Show crash dumps",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "clish -c \'installer agent update\'",
+    "comment" : "Update CPUSE Deployment Agent",
+    "category" : "checkpoint"
+  },
+  {
+    "command" : "clish -c \'installer agent update\'",
+    "comment" : "Update CPUSE Deployment Agent",
+    "category" : "checkpoint"
+  }
+]

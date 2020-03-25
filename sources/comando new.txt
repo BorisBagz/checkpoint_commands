@@ -1,0 +1,1 @@
+fw ctl set int fwha_forw_packet_to_not_active 1
